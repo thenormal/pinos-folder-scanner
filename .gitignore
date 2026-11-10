@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# PyInstaller output
+build/
+dist/
+*.spec
+
+# Logs and editors
+*.log
+.idea/
+.vscode/
+.DS_Store
