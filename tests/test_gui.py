@@ -156,6 +156,29 @@ def main():
     assert win.settings.language() == "it"
     win.set_language("en")
     assert win.btn_start.text() == "Start scan" and win.settings.language() == "en"
+
+    # a real click on the switch: the press must be accepted, otherwise the title bar takes it
+    # (to move the window) and the release never reaches the switch
+    from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QMouseEvent
+
+    sw = win.titlebar.lang
+
+    def mouse(kind, x):
+        pos = QPointF(x, sw.height() / 2)
+        ev = QMouseEvent(kind, pos, sw.mapToGlobal(pos), Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+        return ev
+
+    right = sw.width() * 0.75  # the IT half
+    press = mouse(QEvent.Type.MouseButtonPress, right)
+    press.ignore()
+    sw.mousePressEvent(press)
+    assert press.isAccepted(), "the language switch must accept the mouse press"
+    sw.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease, right))
+    assert win.lang == "it" and win.btn_start.text() == "Avvia scansione"
+    left = sw.width() * 0.25
+    sw.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease, left))
+    assert win.lang == "en" and win.btn_start.text() == "Start scan"
     print("Italian OK")
 
     # --- Ko-fi heart: the click opens the page, the tooltip is translated
