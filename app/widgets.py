@@ -628,6 +628,11 @@ class LangSwitch(QWidget):
         self._current = lang
         self.update()
 
+    def mousePressEvent(self, event):  # noqa: N802
+        # Accept the press: otherwise it goes up to the title bar, which starts moving the
+        # window and the release never reaches this switch.
+        event.accept()
+
     def mouseReleaseEvent(self, event):  # noqa: N802
         if event.button() != Qt.MouseButton.LeftButton:
             return
