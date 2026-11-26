@@ -123,6 +123,8 @@ _ICON_BODIES: Dict[str, Tuple[str, str, str]] = {
     ),
     "info": ("stroke", "0 0 24 24", '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.8h.01"/>'),
     "alert": ("stroke", "0 0 24 24", '<path d="M12 4l9 16H3z"/><path d="M12 10v4"/><path d="M12 17.2h.01"/>'),
+    "heart": ("stroke", "0 0 24 24", '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>'),
+    "heart_fill": ("fill", "0 0 24 24", '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>'),
     "win_min": ("stroke", "0 0 12 12", '<path d="M1 6h10"/>'),
     "win_max": ("stroke", "0 0 12 12", '<rect x="1.5" y="1.5" width="9" height="9" rx="1.5"/>'),
     "win_restore": (
@@ -695,6 +697,39 @@ class WinButton(QAbstractButton):
         draw_icon(p, self.kind, centered(self.width() / 2, self.height() / 2, 12), color, stroke=1.4)
 
 
+class SupportButton(QAbstractButton):
+    """Small heart in the title bar: opens the Ko-fi page (see app/links.py)."""
+
+    HEART = QColor(255, 120, 150)
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self._hover = False
+        self.setFixedSize(40, 32)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+
+    def enterEvent(self, event):  # noqa: N802
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):  # noqa: N802
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def paintEvent(self, _event):  # noqa: N802
+        p = new_painter(self)
+        r = QRectF(self.rect()).adjusted(2, 0, -2, 0)
+        if self._hover:
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(255, 120, 150, 40))
+            p.drawRoundedRect(r, 8, 8)
+        icon = centered(self.width() / 2, self.height() / 2, 16)
+        draw_icon(p, "heart_fill" if self._hover else "heart", icon, self.HEART, stroke=1.8)
+
+
 class TitleBar(QWidget):
     def __init__(self, window: QWidget, languages: List[str], parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -718,6 +753,9 @@ class TitleBar(QWidget):
         self.version.setFixedHeight(22)
         lay.addWidget(self.version, 0, Qt.AlignmentFlag.AlignVCenter)
         lay.addStretch(1)
+        self.support = SupportButton()
+        lay.addWidget(self.support)
+        lay.addSpacing(4)
         self.lang = LangSwitch(languages)
         if len(languages) > 1:  # the switch only appears when there is more than one language
             lay.addWidget(self.lang)

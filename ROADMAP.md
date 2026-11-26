@@ -12,7 +12,6 @@ First public release: scan a drive or folder and export its subfolder list to PD
 - Ko-fi support: a small heart button in the program (opens the Ko-fi page in your browser, only when you click it; the program never connects to the internet by itself), a badge in the README and the **Sponsor** button of this repository.
 - Italian interface.
 - Drag a folder onto the window to choose it.
-- The program remembers your last choices: folder, depth and formats.
 - Automatic build on GitHub Actions: the `.exe` attached to each release is built from the public source.
 
 ## 1.2 – More languages (planned)
