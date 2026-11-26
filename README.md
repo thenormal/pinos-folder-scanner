@@ -20,6 +20,8 @@ Pick a folder, choose how deep to look, tick the formats you want, press **Start
 - **Folders that cannot be read** (no permission, removed while scanning…) are skipped without stopping the scan, and listed in a "not scanned" section of the report.
 - **Symbolic links and junctions are not followed**, so there are no endless loops.
 - Long paths (over 260 characters) and Unicode names (accents, Cyrillic, Japanese…) are handled.
+- **Drag and drop**: drag a folder or a drive onto the window to choose it (a file stands for the folder that contains it).
+- **English and Italian** interface and reports; the language switch is in the title bar, and the language of Windows is used on the first start. More languages are planned.
 - Remembers your last settings.
 - Glass-style interface with animations.
 
@@ -29,11 +31,13 @@ Get `Pinos_Folder_Scanner.exe` from the [Releases](../../releases) page. It is a
 
 > **Windows SmartScreen / antivirus warning.** The executable is not code-signed, and single-file programs built with PyInstaller are sometimes flagged by mistake. If Windows shows a warning, click *More info* → *Run anyway*, or add the file to your antivirus exclusions. If you prefer not to trust a binary, build it yourself from this source (see below): it takes a couple of minutes.
 
+Every release also has a `Pinos_Folder_Scanner.exe.sha256` file. The executable is built automatically on GitHub from the public source, so you can compare the checksum of your download with that file.
+
 Developed for **Windows 11**; Windows 10 is expected to work too.
 
 ## How to use
 
-1. Press **Browse** (or type a path) and choose a drive or folder.
+1. Press **Browse** (or type a path, or drag a folder onto the window) and choose a drive or folder.
 2. Choose the **scan depth** from the menu.
 3. Leave *Include system and hidden folders* off (recommended for a whole drive), or turn it on.
 4. Tick one or more **export formats**.
@@ -75,8 +79,9 @@ python -m venv .venv
 | `app/scanner.py` | Scan engine: depth, filters, links, pause/cancel (no Qt needed) |
 | `app/worker.py` | Runs the scan and the export in a background thread |
 | `app/exporters.py` | One function per format (PDF, TXT, CSV, XLSX, HTML, JSON) |
-| `app/i18n.py` | All the texts of the program (English; a new language is one more block) |
+| `app/i18n.py` | All the texts of the program (English and Italian; a new language is one more block) |
 | `app/settings.py` | Settings remembered between runs |
+| `app/links.py` | The web link of the Ko-fi button (opened only when you click it) |
 | `app/window.py` | Main window, ties everything together |
 | `app/widgets.py` | The look: colours, glass cards, buttons, animated ring, icons |
 | `app/dialogs.py` | Message boxes in the same style |
@@ -84,6 +89,8 @@ python -m venv .venv
 | `assets/icon.ico` | Icon of the .exe (regenerate with `tools/make_icon.py`) |
 | `tools/render_states.py` | Saves images of the window in each state (used for the screenshots) |
 | `tests/` | Automated tests |
+| `.github/workflows/build.yml` | Runs the tests and builds the `.exe` on GitHub; attaches it to each release |
+| `ROADMAP.md`, `CHANGELOG.md` | What is planned and what changed in each version |
 
 Some easy changes:
 
@@ -98,15 +105,19 @@ python tests\test_core.py
 python tests\test_gui.py
 ```
 
-The first one tests scanning (depth, filters, links, permissions, pause/cancel) and all the exports; the second drives the window without showing it. They need no screen and write nothing outside a temporary folder.
+The first one tests scanning (depth, filters, links, permissions, pause/cancel) and all the exports; the second drives the window without showing it (start, pause, cancel, language switch, drag and drop…). They need no screen and write nothing outside a temporary folder.
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md): Italian and more languages (Spanish, French, German, Portuguese, Dutch, Chinese), drag and drop, name filters and more are planned.
+See [ROADMAP.md](ROADMAP.md): more languages (Spanish, French, German, Portuguese, Dutch, Chinese), name filters and copying the list to the clipboard are planned. The changes of each version are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
 Bug reports and ideas are welcome: please open an [issue](../../issues). For a bug, say what you did, what you expected, and attach `errors.log` if there is one.
+
+## Support
+
+The program is free and nothing is locked. If you find it useful, you can [support it on Ko-fi](https://ko-fi.com/thenormal) (or with the heart button in the title bar). Thank you!
 
 ## Third-party software
 

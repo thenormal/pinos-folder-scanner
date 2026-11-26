@@ -2,7 +2,7 @@
 
 All notable changes to Pino's Folder Scanner. See also the [roadmap](ROADMAP.md).
 
-## 1.1 – ready, not yet released
+## 1.1 – 2026-11-26
 
 ### Added
 - Ko-fi support: a small heart button in the title bar that opens the Ko-fi page in your browser when you click it. The program still never connects to the internet by itself.
