@@ -1,0 +1,91 @@
+name: Build
+
+# Runs the tests on every push to main and on every pull request, builds the Windows
+# executable, and attaches it (with its SHA256) to a release when one is published.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install the requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Scanner and export tests
+        run: python tests/test_core.py
+
+      - name: Window tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python tests/test_gui.py
+
+  build:
+    name: Build the executable
+    needs: test
+    runs-on: windows-latest
+    permissions:
+      contents: write   # needed only to attach the files to a release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Same script you can run by hand: it creates the environment, installs the
+      # packages and runs PyInstaller. The CI variable (set by GitHub) turns off its pauses.
+      - name: Build Pinos_Folder_Scanner.exe
+        shell: cmd
+        run: build_exe.bat
+
+      - name: Check the file and write its SHA256
+        shell: pwsh
+        run: |
+          $exe = "dist/Pinos_Folder_Scanner.exe"
+          if (-not (Test-Path $exe)) { throw "The executable was not built." }
+          $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  Pinos_Folder_Scanner.exe" | Set-Content -Encoding ascii "dist/Pinos_Folder_Scanner.exe.sha256"
+          "Built $exe ($size MB), SHA256 $hash" | Write-Host
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pinos_Folder_Scanner
+          path: |
+            dist/Pinos_Folder_Scanner.exe
+            dist/Pinos_Folder_Scanner.exe.sha256
+          if-no-files-found: error
+
+      - name: Attach the files to the release
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release upload "${{ github.event.release.tag_name }}"
+          dist/Pinos_Folder_Scanner.exe
+          dist/Pinos_Folder_Scanner.exe.sha256
+          --clobber
+          --repo "${{ github.repository }}"
