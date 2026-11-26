@@ -16,7 +16,7 @@ if not defined PY (
     echo Download it from https://www.python.org/downloads/ and, during setup,
     echo tick "Add python.exe to PATH". Then run this file again.
     echo.
-    pause
+    if not defined CI pause
     exit /b 1
 )
 
@@ -61,8 +61,8 @@ echo   %~dp0dist\Pinos_Folder_Scanner.exe
 echo   It is a single file: copy it wherever you like.
 echo ============================================================
 echo.
-explorer "%~dp0dist"
-pause
+if not defined CI explorer "%~dp0dist"
+if not defined CI pause
 exit /b 0
 
 :fail
@@ -71,5 +71,5 @@ echo ------------------------------------------------------------
 echo   Something went wrong. Please copy the text above and open
 echo   an issue on GitHub, so it can be looked at.
 echo ------------------------------------------------------------
-pause
+if not defined CI pause
 exit /b 1
