@@ -7,7 +7,7 @@ The program stays free, and no feature is ever locked behind a donation.
 
 First public release: scan a drive or folder and export its subfolder list to PDF, TXT, CSV, XLSX, HTML or JSON.
 
-## 1.1 – Support and Italian (planned)
+## 1.1 – Support and Italian (ready, not yet released)
 
 - Ko-fi support: a small heart button in the program (opens the Ko-fi page in your browser, only when you click it; the program never connects to the internet by itself), a badge in the README and the **Sponsor** button of this repository.
 - Italian interface.

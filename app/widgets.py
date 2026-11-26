@@ -26,6 +26,8 @@ from PySide6.QtGui import (
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QAbstractButton, QHBoxLayout, QLabel, QLineEdit, QMenu, QSizePolicy, QWidget
 
+from . import __version__
+
 # ------------------------------------------------------------------ colours
 TEAL = QColor("#5eead4")
 INDIGO = QColor("#818cf8")
@@ -745,7 +747,7 @@ class TitleBar(QWidget):
         lay.addWidget(self.logo)
         self.title = make_label("", 15, QFont.Weight.DemiBold, "#f4f6ff", display=True)
         lay.addWidget(self.title)
-        self.version = QLabel("v1.0")
+        self.version = QLabel(f"v{__version__}")
         self.version.setFont(ui_font(11, QFont.Weight.Bold))
         self.version.setStyleSheet(
             "color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.10); border-radius: 10px; padding: 3px 9px;"
