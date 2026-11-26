@@ -11,6 +11,7 @@ LANGUAGES = ["en"]
 STRINGS = {
     "en": {
         "app_title": "Pino's Folder Scanner",
+        "support_tip": "Support on Ko-fi",
         "section_folder": "FOLDER TO SCAN",
         "path_placeholder": "Choose a folder or a drive…",
         "browse": "Browse",

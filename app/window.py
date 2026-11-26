@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import QEvent, QPointF, QRectF, QStandardPaths, Qt, QTimer, QVariantAnimation
+from PySide6.QtCore import QEvent, QMimeData, QPointF, QRectF, QStandardPaths, Qt, QTimer, QVariantAnimation
 from PySide6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainterPath, QPen, QRadialGradient
 from PySide6.QtWidgets import (
     QApplication,
@@ -27,6 +27,7 @@ from .dialogs import GlassDialog
 from .exporters import FORMATS, PROGRAM_NAME, target_paths
 from .i18n import LANGUAGES
 from .icon import app_icon
+from .links import open_support_page
 from .scanner import normalize_root
 from .settings import DEPTH_KEYS, Settings
 from .widgets import (
@@ -112,10 +113,28 @@ class DimOverlay(QWidget):
             p.drawRoundedRect(QRectF(card.geometry()), 22, 22)
 
 
+def dropped_folder(mime: QMimeData) -> Optional[str]:
+    """Folder to scan for something dragged onto the window.
+
+    A folder or a drive is used as it is; a file stands for the folder that contains it.
+    Returns None when nothing usable was dropped (for example a web link).
+    """
+    for url in mime.urls():
+        if not url.isLocalFile():
+            continue
+        path = url.toLocalFile()
+        if os.path.isdir(path):
+            return os.path.normpath(path)
+        if os.path.isfile(path):
+            return os.path.dirname(os.path.normpath(path))
+    return None
+
+
 class MainWindow(QWidget):
     def __init__(self, settings: Settings):
         super().__init__()
         self.settings = settings
+        self.setAcceptDrops(True)  # a folder dragged onto the window becomes the folder to scan
         self.lang = settings.language()
         self.state = "idle"
         self.worker: Optional[ScanWorker] = None
@@ -173,6 +192,7 @@ class MainWindow(QWidget):
 
         self.titlebar = TitleBar(self, LANGUAGES)
         self.titlebar.lang.changed.connect(self.set_language)
+        self.titlebar.support.clicked.connect(self._open_support)
         root.addWidget(self.titlebar)
 
         body = QWidget()
@@ -196,6 +216,7 @@ class MainWindow(QWidget):
         row = QHBoxLayout()
         row.setSpacing(12)
         self.path_field = PathField()
+        self.path_field.edit.setAcceptDrops(False)  # let the window handle drops, not the text box
         self.path_field.edit.returnPressed.connect(self._on_start)
         row.addWidget(self.path_field, 1)
         self.btn_browse = GradientButton("", "primary", "folder_open", 54, 15)
@@ -350,6 +371,7 @@ class MainWindow(QWidget):
     def retranslate(self) -> None:
         t = self._tr
         self.titlebar.title.setText(PROGRAM_NAME)
+        self.titlebar.support.setToolTip(t("support_tip"))
         self.cap_folder.setText(t("section_folder"))
         self.path_field.edit.setPlaceholderText(t("path_placeholder"))
         self.btn_browse.set_look("primary", text=t("browse"))
@@ -516,6 +538,33 @@ class MainWindow(QWidget):
     def _tick_clock(self) -> None:
         if self.state in ("scanning",):
             self.tile_time.set_texts(fmt_time(self._elapsed()))
+
+    # ------------------------------------------------------------------ support link and drag and drop
+    def _open_support(self) -> None:
+        open_support_page()
+
+    def _can_drop(self, mime: QMimeData) -> bool:
+        return not self._running() and dropped_folder(mime) is not None
+
+    def dragEnterEvent(self, event) -> None:  # noqa: N802
+        if self._can_drop(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event) -> None:  # noqa: N802
+        if self._can_drop(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event) -> None:  # noqa: N802
+        folder = None if self._running() else dropped_folder(event.mimeData())
+        if folder is None:
+            event.ignore()
+            return
+        self.path_field.edit.setText(folder)
+        event.acceptProposedAction()
 
     # ------------------------------------------------------------------ actions
     def _browse(self) -> None:

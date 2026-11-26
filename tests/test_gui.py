@@ -11,7 +11,8 @@ import time
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from PySide6.QtCore import QSettings  # noqa: E402
+from PySide6.QtCore import QMimeData, QPointF, QSettings, Qt, QUrl  # noqa: E402
+from PySide6.QtGui import QDropEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 # temporary settings, so the real ones (registry on Windows) are never touched
@@ -22,7 +23,9 @@ QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, _cfg)
 import app.scanner as scanner_mod  # noqa: E402
 from app.dialogs import GlassDialog  # noqa: E402
 from app.settings import Settings  # noqa: E402
-from app.window import MainWindow  # noqa: E402
+import app.window as window_mod  # noqa: E402
+from app.links import KOFI_URL  # noqa: E402
+from app.window import MainWindow, dropped_folder  # noqa: E402
 
 qt = QApplication(sys.argv)
 messages = []
@@ -141,6 +144,50 @@ def main():
 
     assert win.btn_start.text() == "Start scan" and win.cap_depth.text() == "SCAN DEPTH"
     print("texts OK")
+
+    # --- Ko-fi heart: the click opens the page, the tooltip is translated
+    opened = []
+    window_mod.open_support_page = lambda: opened.append(KOFI_URL) or True
+    assert KOFI_URL == "https://ko-fi.com/thenormal"
+    assert win.titlebar.support.toolTip() == "Support on Ko-fi"
+    win.titlebar.support.click()
+    assert opened == [KOFI_URL]
+    print("Ko-fi button OK")
+
+    # --- drag and drop of a folder, a drive or a file onto the window
+    def make_mime(*paths):
+        mime = QMimeData()
+        mime.setUrls([QUrl.fromLocalFile(p) for p in paths])
+        return mime
+
+    def drop(*paths):
+        mime = make_mime(*paths)  # the event does not own it: keep it alive
+        event = QDropEvent(
+            QPointF(50, 50), Qt.DropAction.CopyAction, mime, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier
+        )
+        event.setDropAction(Qt.DropAction.CopyAction)
+        win.dropEvent(event)
+        return event.isAccepted()
+
+    a00 = os.path.join(tree, "a00")
+    some_file = os.path.join(out, "some.txt")
+    open(some_file, "w").close()
+    assert dropped_folder(make_mime(a00)) == os.path.normpath(a00)
+    assert dropped_folder(make_mime(some_file)) == os.path.normpath(out)
+    assert dropped_folder(QMimeData()) is None
+    web = QMimeData()
+    web.setUrls([QUrl("https://example.com")])
+    assert dropped_folder(web) is None
+    assert dropped_folder(make_mime(os.path.join(tmp, "does_not_exist"))) is None
+    win.path_field.edit.setText("")
+    assert drop(a00) and win.path_field.edit.text() == os.path.normpath(a00)
+    assert drop(some_file) and win.path_field.edit.text() == os.path.normpath(out)
+    assert not drop(os.path.join(tmp, "does_not_exist")) and win.path_field.edit.text() == os.path.normpath(out)
+    win.state = "scanning"  # while a scan is running a drop is refused
+    assert not drop(a00) and win.path_field.edit.text() == os.path.normpath(out)
+    win.state = "cancelled"
+    win.path_field.edit.setText(tree)  # back to the folder used by the following checks
+    print("drag and drop OK")
 
     # --- closing during a scan
     win.chips["pdf"].setChecked(True)
