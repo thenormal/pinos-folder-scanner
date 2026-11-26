@@ -61,10 +61,12 @@ def main():
     out = os.path.join(tmp, "output")
     os.makedirs(out)
 
-    win = MainWindow(Settings())
+    settings = Settings()
+    settings.set_language("en")  # the texts below are English, whatever the language of the system
+    win = MainWindow(settings)
     win.show()
     qt.processEvents()
-    assert not win.titlebar.lang.isVisible(), "no language switch while there is only one language"
+    assert win.titlebar.lang.isVisible(), "two languages: the language switch is shown"
     win.path_field.edit.setText(tree)
     win.depth.set_current("all")
     for fmt, chip in win.chips.items():
@@ -144,6 +146,17 @@ def main():
 
     assert win.btn_start.text() == "Start scan" and win.cap_depth.text() == "SCAN DEPTH"
     print("texts OK")
+
+    # --- Italian: switch the window and back, the texts and the saved choice follow
+    from app.i18n import LANGUAGES, STRINGS
+    assert LANGUAGES == ["en", "it"]
+    win.set_language("it")
+    assert win.btn_start.text() == STRINGS["it"]["btn_start"] == "Avvia scansione"
+    assert win.titlebar.support.toolTip() == STRINGS["it"]["support_tip"]
+    assert win.settings.language() == "it"
+    win.set_language("en")
+    assert win.btn_start.text() == "Start scan" and win.settings.language() == "en"
+    print("Italian OK")
 
     # --- Ko-fi heart: the click opens the page, the tooltip is translated
     opened = []

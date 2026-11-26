@@ -147,6 +147,15 @@ def main():
         if os.name != "nt":
             assert "&lt;2024&gt;" in html_text
         assert open(base + ".pdf", "rb").read(5) == b"%PDF-"
+
+        # the same report in Italian
+        base_it = os.path.join(tmp, "export_it")
+        created_it, errors_it = export_all(ExportContext(rall, "it", datetime.now(), DEPTH_LABEL), FORMATS, base_it)
+        assert not errors_it, errors_it
+        txt_it = open(base_it + ".txt", encoding="utf-8").read()
+        assert "ELENCO SOTTOCARTELLE" in txt_it and "SUBFOLDER LIST" not in txt_it
+        assert open(base_it + ".pdf", "rb").read(5) == b"%PDF-"
+        print("Italian exports OK")
         from openpyxl import load_workbook
 
         wb = load_workbook(base + ".xlsx")
