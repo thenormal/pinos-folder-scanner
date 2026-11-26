@@ -4,6 +4,8 @@ A small Windows desktop app that scans a drive or a folder and exports the list 
 
 Pick a folder, choose how deep to look, tick the formats you want, press **Start scan**. That's it.
 
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/thenormal)
+
 ![Pino's Folder Scanner, ready to scan](docs/screenshot-ready.png)
 
 ![Pino's Folder Scanner, scanning](docs/screenshot-scanning.png)
@@ -100,7 +102,7 @@ The first one tests scanning (depth, filters, links, permissions, pause/cancel) 
 
 ## Roadmap
 
-- More interface languages are planned: Italian, Spanish, French, German and Portuguese. For now the program is English only.
+See [ROADMAP.md](ROADMAP.md): Italian and more languages (Spanish, French, German, Portuguese, Dutch, Chinese), drag and drop, name filters and more are planned.
 
 ## Contributing
 
