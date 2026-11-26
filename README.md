@@ -109,7 +109,7 @@ The first one tests scanning (depth, filters, links, permissions, pause/cancel) 
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md): more languages (Spanish, French, German, Portuguese, Dutch, Chinese), name filters and copying the list to the clipboard are planned. The changes of each version are in [CHANGELOG.md](CHANGELOG.md).
+See [ROADMAP.md](ROADMAP.md): a diagnostic report to help with problem reports, more languages (Spanish, French, German, Portuguese, Dutch, Chinese), name filters and copying the list to the clipboard are planned. The changes of each version are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
