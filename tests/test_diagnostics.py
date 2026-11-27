@@ -168,6 +168,15 @@ def main() -> None:
     assert "Status: cancelled" in build_report(cancelled, env, "", Masker(), datetime.now())
     print("no scan / failed / cancelled OK")
 
+    # --- exclusion by name: only how many names and folders are reported, never the names typed
+    res.exclude, res.excluded = ["SecretFamilyPhotos", "Café ünïcode*"], 7
+    text = build_report(run, env, "", Masker(), datetime.now())
+    assert "Exclusion by name: 2 name(s), 7 folders left out" in text
+    assert_no_secret(text, "report with exclusion")
+    res.exclude, res.excluded = [], 0
+    assert "Exclusion by name" not in build_report(run, env, "", Masker(), datetime.now())
+    print("exclusion in the report OK")
+
     # --- when a report is worth offering: only for real problems
     assert not needs_attention(None)
     assert needs_attention(failed)  # the scan failed

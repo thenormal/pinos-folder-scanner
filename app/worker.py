@@ -27,6 +27,7 @@ class ScanWorker(QThread):
         base: str,
         lang: str,
         depth_label: str,
+        exclude: Optional[List[str]] = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -37,6 +38,7 @@ class ScanWorker(QThread):
         self.base = base
         self.lang = lang
         self.depth_label = depth_label
+        self.exclude = list(exclude or [])
         self._run_event = threading.Event()  # "set" = running, "clear" = paused
         self._run_event.set()
         self._cancel_event = threading.Event()
@@ -65,6 +67,7 @@ class ScanWorker(QThread):
                 on_progress=lambda count, path, skipped: self.progress.emit(count, path, skipped),
                 run_event=self._run_event,
                 cancel_event=self._cancel_event,
+                exclude=self.exclude,
             )
         except Exception as exc:  # noqa: BLE001
             self.error_trace = traceback.format_exc()

@@ -125,6 +125,7 @@ _ICON_BODIES: Dict[str, Tuple[str, str, str]] = {
     ),
     "info": ("stroke", "0 0 24 24", '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.8h.01"/>'),
     "alert": ("stroke", "0 0 24 24", '<path d="M12 4l9 16H3z"/><path d="M12 10v4"/><path d="M12 17.2h.01"/>'),
+    "ban": ("stroke", "0 0 24 24", '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>'),
     "heart": ("stroke", "0 0 24 24", '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>'),
     "heart_fill": ("fill", "0 0 24 24", '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>'),
     "win_min": ("stroke", "0 0 12 12", '<path d="M1 6h10"/>'),
@@ -239,17 +240,17 @@ def paint_field(p: QPainter, r: QRectF, highlight: bool = False, hover: bool = F
 
 
 class PathField(QWidget):
-    """Path field: drive icon + editable text."""
+    """Text field: an icon (a drive for the path) + editable text."""
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, icon: str = "drive", height: int = 54, font_px: float = 16, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.setFixedHeight(54)
+        self.setFixedHeight(height)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 0, 16, 0)
         layout.setSpacing(12)
-        layout.addWidget(IconWidget("drive", 20, TEAL))
+        layout.addWidget(IconWidget(icon, 20 if height >= 50 else 18, TEAL))
         self.edit = QLineEdit()
-        self.edit.setFont(ui_font(16, QFont.Weight.Bold))
+        self.edit.setFont(ui_font(font_px, QFont.Weight.Bold))
         self.edit.setFrame(False)
         pal = self.edit.palette()
         pal.setColor(QPalette.ColorRole.PlaceholderText, QColor(255, 255, 255, 105))

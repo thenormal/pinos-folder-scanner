@@ -34,7 +34,7 @@ One release with all of this. The work is done in small steps, each one tried on
 
 ### Filters and clipboard
 
-- Exclude folders by name (for example `node_modules` or `.git`).
+- Exclude folders by name (for example `node_modules` or `.git`). *Progress: done. A field in the main window takes names separated by commas or semicolons; upper and lower case do not matter, `*` and `?` work as wildcards, a folder left out is not opened (so nothing inside it is listed) and the starting folder is never left out. The exported files and the final message say what was left out; the diagnostic report only counts them.*
 - Copy the list to the clipboard without saving a file.
 
 ## Ideas, no version yet

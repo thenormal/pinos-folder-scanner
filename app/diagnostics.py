@@ -379,6 +379,8 @@ def build_report(
                 f"Folders skipped: {len(result.skipped):,} (access denied {counts.get('denied', 0)}, "
                 f"not found {counts.get('notfound', 0)}, unexpected error {counts.get('error', 0)})"
             )
+            if result.exclude:  # the names are the person's own words: only how many are reported
+                add(f"Exclusion by name: {len(result.exclude)} name(s), {result.excluded:,} folders left out")
             add(f"Scan time, pauses excluded: {_seconds(result.duration)}")
             add(f"Time in pause: {_seconds(result.paused)}")
             add(f"Folders opened to read them: {result.dirs_read:,}")

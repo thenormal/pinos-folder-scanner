@@ -56,15 +56,22 @@ def _reason_text(ctx: ExportContext, item: SkippedFolder) -> str:
 def _summary_rows(ctx: ExportContext) -> List[Tuple[str, str]]:
     r = ctx.result
     L = ctx.lang
-    return [
+    rows = [
         (tr(L, "rep_scanned_path"), r.root),
         (tr(L, "rep_date"), ctx.generated_at.strftime("%Y-%m-%d %H:%M:%S")),
         (tr(L, "rep_depth"), ctx.depth_label),
         (tr(L, "rep_hidden"), tr(L, "rep_hidden_yes" if r.include_hidden else "rep_hidden_no")),
+    ]
+    if r.exclude:  # only when the person asked to leave some folders out
+        rows.append((tr(L, "rep_excluded_names"), ", ".join(r.exclude)))
+    rows += [
         (tr(L, "rep_total"), format_int(len(r.folders), L)),
         (tr(L, "rep_skipped_count"), str(len(r.skipped))),
-        (tr(L, "rep_duration"), _format_duration(r.duration)),
     ]
+    if r.exclude:
+        rows.append((tr(L, "rep_excluded_count"), format_int(r.excluded, L)))
+    rows.append((tr(L, "rep_duration"), _format_duration(r.duration)))
+    return rows
 
 
 # ---------------------------------------------------------------- TXT
@@ -181,6 +188,9 @@ def export_json(ctx: ExportContext, path: str) -> List[str]:
             {"path": s.path, "reason": s.code, "detail": s.detail} for s in r.skipped
         ],
     }
+    if r.exclude:  # only when the person asked to leave some folders out
+        data["excluded_names"] = list(r.exclude)
+        data["excluded_count"] = r.excluded
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, ensure_ascii=False, indent=2)
     return [path]
