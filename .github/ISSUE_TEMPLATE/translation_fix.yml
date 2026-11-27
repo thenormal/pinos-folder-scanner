@@ -15,6 +15,9 @@ body:
         - Español
         - Français
         - Italiano
+        - Nederlands
+        - Português
+        - 中文 (简体)
         - Other
     validations:
       required: true

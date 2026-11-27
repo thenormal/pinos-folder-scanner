@@ -36,7 +36,7 @@ from .diagnostics import (
     system_summary,
 )
 from .exporters import FORMATS, PROGRAM_NAME, target_paths
-from .i18n import LANGUAGE_NAMES, LANGUAGES, UNVERIFIED_LANGUAGES
+from .i18n import LANGUAGE_NAMES, LANGUAGES, UNVERIFIED_LANGUAGES, format_int
 from .icon import app_icon
 from . import __version__
 from .links import ISSUES_URL, KOFI_URL, README_URL, REPO_URL, new_issue_url, open_support_page, open_url
@@ -70,10 +70,6 @@ BLOBS = [
     (0.97, 0.50, 0.25, "#2dd4bf", 0.42, 40.0, 0.040, 1.7),
     (0.50, 1.04, 0.27, "#ec4899", 0.34, 50.0, 0.030, 3.1),
 ]
-
-
-def fmt_int(n: int) -> str:
-    return f"{n:,}"
 
 
 def fmt_time(seconds: float) -> str:
@@ -197,6 +193,10 @@ class MainWindow(QWidget):
     # ------------------------------------------------------------------ construction
     def _tr(self, key: str, **kw) -> str:
         return i18n.tr(self.lang, key, **kw)
+
+    def _num(self, n: int) -> str:
+        """A number with the thousands separator of the language in use."""
+        return format_int(n, self.lang)
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
@@ -482,7 +482,7 @@ class MainWindow(QWidget):
         }[s]
         self.pill.set_state(pill[0], t(pill[1]))
 
-        count_text = fmt_int(self._count)
+        count_text = self._num(self._count)
         if s in ("scanning", "paused"):
             self.ring.set_mode(s, count_text, t("count_caption"))
         elif s == "exporting":
@@ -500,7 +500,7 @@ class MainWindow(QWidget):
             self.stack.setCurrentIndex(0)
             if s == "done":
                 self.lbl_title.setText(t("done_title"))
-                self.lbl_sub.setText(t("done_sub", n=fmt_int(self._count), s=fmt_int(self._skipped)))
+                self.lbl_sub.setText(t("done_sub", n=self._num(self._count), s=self._num(self._skipped)))
             elif s == "cancelled":
                 self.lbl_title.setText(t("cancelled_title"))
                 self.lbl_sub.setText(t("cancelled_sub"))
@@ -546,7 +546,7 @@ class MainWindow(QWidget):
     def _refresh_tiles(self) -> None:
         t = self._tr
         self.tile_time.set_texts(fmt_time(self._elapsed()), t("tile_time"))
-        self.tile_skipped.set_texts(fmt_int(self._skipped), t("tile_skipped"))
+        self.tile_skipped.set_texts(self._num(self._skipped), t("tile_skipped"))
         key = self.depth.current() or "2"
         self.tile_depth.set_texts(t(f"depth_short_{key}"), t("tile_depth"))
 
@@ -715,8 +715,8 @@ class MainWindow(QWidget):
         if path:
             self._last_path = path
             self.ticker.set_text(path)
-        self.ring.set_count(fmt_int(count))
-        self.tile_skipped.set_texts(fmt_int(skipped))
+        self.ring.set_count(self._num(count))
+        self.tile_skipped.set_texts(self._num(skipped))
 
     def _on_exporting(self) -> None:
         if self.worker is not None and self._pause_started is None:
@@ -749,8 +749,8 @@ class MainWindow(QWidget):
         folder = os.path.dirname(files[0]) if files else os.path.dirname(self._base)
         text = t("done_msg") + "\n\n" + t(
             "done_msg_info",
-            n=fmt_int(self._count),
-            s=fmt_int(self._skipped),
+            n=self._num(self._count),
+            s=self._num(self._skipped),
             t=fmt_time(result.duration),
             folder=folder,
             files="\n".join("• " + os.path.basename(f) for f in files) or "–",

@@ -13,7 +13,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from openpyxl import load_workbook  # noqa: E402
 
 from app.exporters import FORMATS, ExportContext, export_all  # noqa: E402
-from app.i18n import LANGUAGE_NAMES, LANGUAGES, STRINGS, tr  # noqa: E402
+from app.i18n import LANGUAGE_NAMES, LANGUAGES, STRINGS, format_int, tr  # noqa: E402
+from app.settings import language_for_locale  # noqa: E402
 from app.scanner import scan  # noqa: E402
 
 DEPTH_LABEL = "All subfolders (No depth limit)"
@@ -71,6 +72,18 @@ def check_texts():
     assert tr("xx", "btn_start") == en["btn_start"], "an unknown language falls back to English"
     assert STRINGS["de"]["btn_start"] != en["btn_start"] and STRINGS["fr"]["btn_start"] != en["btn_start"]
     print(f"texts OK: {len(LANGUAGES)} languages x {len(en)} texts, same placeholders")
+
+    # numbers: the separator of each language
+    assert format_int(12847, "en") == "12,847" and format_int(12847, "it") == "12.847"
+    assert format_int(12847, "fr") == "12\u00a0847" and format_int(1234567, "de") == "1.234.567"
+    assert format_int(999, "nl") == "999" and format_int(0, "zh") == "0" and format_int(12847, "xx") == "12,847"
+
+    # the language chosen from the language of Windows
+    for name, lang in (("it_IT", "it"), ("en_US", "en"), ("pt_BR", "pt"), ("pt_PT", "pt"), ("nl_BE", "nl"),
+                       ("de-DE", "de"), ("zh_CN", "zh"), ("zh_SG", "zh"), ("zh_Hans_CN", "zh"),
+                       ("zh_TW", "en"), ("zh_HK", "en"), ("zh_Hant_TW", "en"), ("ja_JP", "en"), ("", "en")):
+        assert language_for_locale(name) == lang, (name, language_for_locale(name))
+    print("numbers and language detection OK")
 
 
 def main():
@@ -196,6 +209,19 @@ def main():
             html_l = open(base_l + ".html", encoding="utf-8").read()
             assert html.escape(STRINGS[lang]["html_search"]) in html_l, lang
         print("exports in every language OK")
+
+        # Chinese in the PDF: the title, the summary and the page footer must use a font that has the characters.
+        # (Needs a Chinese font on the computer: Microsoft YaHei on Windows. Without one the check is skipped.)
+        from app.exporters import pdf_font_info
+        from pypdf import PdfReader
+
+        if pdf_font_info()[1]:
+            text_zh = "\n".join(page.extract_text() for page in PdfReader(os.path.join(tmp, "export_zh.pdf")).pages)
+            assert STRINGS["zh"]["rep_title"] in text_zh and STRINGS["zh"]["rep_total"] in text_zh, "Chinese text in the PDF body"
+            assert "第" in text_zh and "页，共" in text_zh, "Chinese page footer in the PDF (drawn with a fallback font)"
+            print("Chinese PDF OK, fallback fonts:", ", ".join(pdf_font_info()[1]))
+        else:
+            print("Chinese PDF check skipped: no Chinese font found on this computer")
         wb = load_workbook(base + ".xlsx")
         assert wb.sheetnames[0] == "Folders" and wb["Folders"].max_row == len(rall.folders) + 1
         print("exports OK:", ", ".join(os.path.basename(c) for c in created))

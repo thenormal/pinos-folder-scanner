@@ -165,11 +165,16 @@ def main():
 
     # --- Italian: switch the window and back, the texts and the saved choice follow
     from app.i18n import LANGUAGES, STRINGS
-    assert LANGUAGES == ["en", "it", "de", "es", "fr"]
+    assert LANGUAGES == ["en", "it", "de", "es", "fr", "nl", "pt", "zh"]
     win.set_language("it")
     assert win.btn_start.text() == STRINGS["it"]["btn_start"] == "Avvia scansione"
     assert win.titlebar.support.toolTip() == STRINGS["it"]["support_tip"]
     assert win.settings.language() == "it"
+    # the folder count uses the separator of the language
+    win._count = 12847
+    for lang, expected in (("en", "12,847"), ("it", "12.847"), ("fr", "12\u00a0847"), ("zh", "12,847")):
+        win.set_language(lang)
+        assert win._num(win._count) == expected, lang
     win.set_language("en")
     assert win.btn_start.text() == "Start scan" and win.settings.language() == "en"
 
@@ -203,7 +208,7 @@ def main():
     menu_btn._run_menu = fake_run
     menu_btn.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease))  # a click on the pill opens the menu
     assert [e[0] for e in listed[0]] == LANGUAGES
-    assert [e[1] for e in listed[0]] == ["English", "Italiano", "Deutsch", "Español", "Français"]
+    assert [e[1] for e in listed[0]] == ["English", "Italiano", "Deutsch", "Español", "Français", "Nederlands", "Português", "中文 (简体)"]
     assert [e[0] for e in listed[0] if e[2]] == ["en"], "the current language is ticked"
     assert win.lang == "it" and win.btn_start.text() == "Avvia scansione" and menu_btn.current() == "it"
     pick["lang"] = "en"
@@ -230,7 +235,7 @@ def main():
         win._open_info()
         has_note = STRINGS[lang]["info_unverified"] in shown_text[-1]
         assert has_note == (lang in UNVERIFIED_LANGUAGES), lang
-    assert UNVERIFIED_LANGUAGES == {"de", "es", "fr"}
+    assert UNVERIFIED_LANGUAGES == {"de", "es", "fr", "nl", "pt", "zh"}
     win.set_language("en")
     print("Italian OK")
 

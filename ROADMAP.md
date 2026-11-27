@@ -28,7 +28,7 @@ One release with all of this. The work is done in small steps, each one tried on
 
 ### More languages
 
-- Spanish, French, German, Portuguese, Dutch and Chinese. *Progress: German, Spanish and French are in; Portuguese, Dutch and Chinese are next.*
+- Spanish, French, German, Portuguese, Dutch and Chinese. *Progress: all six are in (Chinese is Simplified Chinese; Portuguese is neutral, close to Brazilian). Numbers use the separator of each language.*
 - The language switch is now a drop-down menu with the name of each language; the language of Windows is used by default.
 - Issue form to report a translation to fix (done). Translations are not checked by native speakers yet: the info window says so, and corrections are welcome.
 
