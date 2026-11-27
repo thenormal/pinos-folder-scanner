@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import threading
+import traceback
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from PySide6.QtCore import QThread, Signal
 
@@ -39,6 +40,9 @@ class ScanWorker(QThread):
         self._run_event = threading.Event()  # "set" = running, "clear" = paused
         self._run_event.set()
         self._cancel_event = threading.Event()
+        # kept for the diagnostic report
+        self.export_stats: Dict[str, Dict[str, object]] = {}
+        self.error_trace = ""
 
     # commands from the window
     def pause(self) -> None:
@@ -63,6 +67,7 @@ class ScanWorker(QThread):
                 cancel_event=self._cancel_event,
             )
         except Exception as exc:  # noqa: BLE001
+            self.error_trace = traceback.format_exc()
             self.failed.emit(str(exc))
             return
         if result.cancelled:
@@ -70,5 +75,5 @@ class ScanWorker(QThread):
             return
         self.exporting.emit()
         ctx = ExportContext(result, self.lang, started_at, self.depth_label)
-        files, errors = export_all(ctx, self.formats, self.base)
+        files, errors = export_all(ctx, self.formats, self.base, self.export_stats)
         self.finished_ok.emit(result, files, errors)

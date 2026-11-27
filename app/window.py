@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from . import i18n
 from .dialogs import GlassDialog
+from .diagnostics import Masker, RunRecord, build_report, environment_info, error_log_path, read_log_tail, save_report
 from .exporters import FORMATS, PROGRAM_NAME, target_paths
 from .i18n import LANGUAGES
 from .icon import app_icon
@@ -141,6 +142,7 @@ class MainWindow(QWidget):
         self._count = 0
         self._skipped = 0
         self._last_path = ""
+        self.last_run: Optional[RunRecord] = None  # what the diagnostic report is about
         self._error_text = ""
         self._last_duration = 0.0
         self._base = ""
@@ -657,6 +659,15 @@ class MainWindow(QWidget):
         self._scan_started = time.monotonic()
         self.ticker.set_text("")
 
+        self.last_run = RunRecord(
+            started_at=datetime.now(),
+            root=root,
+            depth_key=key,
+            include_hidden=self.toggle.isChecked(),
+            formats=list(formats),
+            language=self.lang,
+            save_base=base,
+        )
         self.worker = ScanWorker(root, DEPTH_VALUE[key], self.toggle.isChecked(), formats, base, self.lang, depth_label, self)
         self.worker.progress.connect(self._on_progress)
         self.worker.exporting.connect(self._on_exporting)
@@ -706,6 +717,12 @@ class MainWindow(QWidget):
             worker.deleteLater()
 
     def _on_finished(self, result, files: list, errors: list) -> None:
+        if self.last_run is not None:
+            self.last_run.result = result
+            self.last_run.errors = list(errors)
+            self.last_run.status = "cancelled" if result.cancelled else "completed"
+            if self.worker is not None:
+                self.last_run.export_stats = dict(self.worker.export_stats)
         self._release_worker()
         self._last_duration = result.duration
         self._count = len(result.folders)
@@ -730,11 +747,25 @@ class MainWindow(QWidget):
         GlassDialog.message(self, t("done_msg_title"), text, t("btn_ok"), "warn" if errors else "success")
 
     def _on_failed(self, message: str) -> None:
+        if self.last_run is not None:
+            self.last_run.status = "failed"
+            self.last_run.fail_message = message
+            if self.worker is not None:
+                self.last_run.fail_trace = self.worker.error_trace
         self._release_worker()
         self._error_text = message
         self._set_state("error")
         t = self._tr
         GlassDialog.message(self, t("err_title"), t("fail_msg", e=message), t("btn_ok"), "error")
+
+    # ------------------------------------------------------------------ diagnostic report
+    def diagnostic_report_text(self) -> str:
+        """The diagnostic report of the last scan (folder names masked), as text."""
+        env = environment_info(self.lang, self.devicePixelRatioF())
+        return build_report(self.last_run, env, read_log_tail(error_log_path(create=False)), Masker(), datetime.now())
+
+    def save_diagnostic_report(self, path: str) -> None:
+        save_report(self.diagnostic_report_text(), path)
 
     # ------------------------------------------------------------------ closing
     def closeEvent(self, event) -> None:  # noqa: N802

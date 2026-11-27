@@ -9,7 +9,7 @@ import os
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 FILE_ATTRIBUTE_HIDDEN = 0x2
 FILE_ATTRIBUTE_SYSTEM = 0x4
@@ -51,6 +51,20 @@ class ScanResult:
     skipped: List[SkippedFolder] = field(default_factory=list)
     duration: float = 0.0
     cancelled: bool = False
+    paused: float = 0.0  # seconds spent in pause (not counted in `duration`)
+    dirs_read: int = 0  # folders opened to read their content
+    slowest: List[Tuple[str, float]] = field(default_factory=list)  # (folder, seconds), slowest first
+
+
+SLOWEST_KEEP = 5
+
+
+def _remember_slowest(slowest: List[Tuple[str, float]], path: str, seconds: float) -> None:
+    """Keep the SLOWEST_KEEP folders that took longest to read (used by the diagnostic report)."""
+    if len(slowest) < SLOWEST_KEEP or seconds > slowest[-1][1]:
+        slowest.append((path, seconds))
+        slowest.sort(key=lambda item: item[1], reverse=True)
+        del slowest[SLOWEST_KEEP:]
 
 
 # ---------------------------------------------------------------- long paths
@@ -187,6 +201,7 @@ def scan(
 
         path, depth = stack.pop()
         parent_is_root = is_drive_root(path)
+        read_started = time.perf_counter()
         try:
             with os.scandir(to_long(path)) as it:
                 for entry in it:
@@ -211,10 +226,13 @@ def scan(
             result.skipped.append(SkippedFolder(path, "notfound"))
         except OSError as exc:
             result.skipped.append(SkippedFolder(path, "error", str(exc)))
+        result.dirs_read += 1
+        _remember_slowest(result.slowest, path, time.perf_counter() - read_started)
         emit()
 
     result.folders.sort(key=sort_key)
     result.skipped.sort(key=lambda s: sort_key(s.path))
+    result.paused = paused_total
     result.duration = time.monotonic() - started - paused_total
     emit(force=True)
     return result

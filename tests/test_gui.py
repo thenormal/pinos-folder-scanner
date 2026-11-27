@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 _cfg = tempfile.mkdtemp(prefix="fs_cfg_")
 QSettings.setDefaultFormat(QSettings.Format.IniFormat)
 QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, _cfg)
+os.environ["LOCALAPPDATA"] = tempfile.mkdtemp(prefix="fs_log_")  # the diagnostic report reads errors.log from here
 
 import app.scanner as scanner_mod  # noqa: E402
 from app.dialogs import GlassDialog  # noqa: E402
@@ -83,6 +84,17 @@ def main():
     assert win._count == 40 * 3, win._count
     print("start -> scan -> files created -> final message OK")
 
+    # --- diagnostic report of that scan: complete, and without any real folder name
+    assert win.last_run is not None and win.last_run.status == "completed"
+    report = win.diagnostic_report_text()
+    assert "Status: completed" in report and "Folders found: " in report and "PDF: " in report and "CSV: " in report
+    assert "Interface language: en" in report and "Program version: " in report
+    assert os.path.basename(tmp) not in report and "tree" not in report.split("Scanned path:")[1].split("\n")[0]
+    saved = os.path.join(tmp, "diag.txt")
+    win.save_diagnostic_report(saved)
+    assert os.path.getsize(saved) > 500
+    print("diagnostic report of a finished scan OK")
+
     # --- pause and resume
     messages.clear()
     base2 = os.path.join(out, "two")
@@ -119,6 +131,7 @@ def main():
     assert not os.path.exists(base3 + ".pdf") and not os.path.exists(base3 + ".csv")
     assert messages and messages[-1][0] == "Scan cancelled"
     print("cancel OK (no file created)")
+    assert win.last_run.status == "cancelled" and "Status: cancelled" in win.diagnostic_report_text()
 
     # --- cancel while paused
     messages.clear()
