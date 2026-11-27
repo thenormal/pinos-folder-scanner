@@ -76,6 +76,9 @@ class ScanWorker(QThread):
         if result.cancelled:
             self.finished_ok.emit(result, [], [])
             return
+        if not self.formats:  # "scan only": no file is created (the list can be copied from the window)
+            self.finished_ok.emit(result, [], [])
+            return
         self.exporting.emit()
         ctx = ExportContext(result, self.lang, started_at, self.depth_label)
         files, errors = export_all(ctx, self.formats, self.base, self.export_stats)

@@ -348,8 +348,12 @@ class MainWindow(QWidget):
         self.btn_pause.clicked.connect(self._on_pause)
         self.btn_cancel = GradientButton("", "rose", "x", 48, 15)
         self.btn_cancel.clicked.connect(self._on_cancel)
+        self.btn_copy = GradientButton("", "ghost", "copy", 48, 15)
+        self.btn_copy.clicked.connect(self._copy_list)
+        self.btn_copy.hide()  # only shown when a scan is complete (it replaces Pause and Cancel)
         brow.addWidget(self.btn_pause, 1)
         brow.addWidget(self.btn_cancel, 1)
+        brow.addWidget(self.btn_copy, 1)
         rl.addLayout(brow)
         body_l.addWidget(self.card_status, 10)
 
@@ -535,6 +539,13 @@ class MainWindow(QWidget):
         self.btn_pause.setEnabled(can_control)
         self.btn_cancel.set_look("rose", "x", t("btn_cancel"))
         self.btn_cancel.setEnabled(can_control)
+        copy_mode = s == "done" and self._can_copy()  # a complete scan: "Copy list" replaces Pause and Cancel
+        self.btn_pause.setVisible(not copy_mode)
+        self.btn_cancel.setVisible(not copy_mode)
+        self.btn_copy.setVisible(copy_mode)
+        if copy_mode:
+            self.btn_copy.set_look("ghost", "copy", t("btn_copy"))
+            self.btn_copy.setEnabled(bool(self.last_run.result.folders))
 
         self.left.setEnabled(not running)
         self.dim.set_active(running)
@@ -649,24 +660,24 @@ class MainWindow(QWidget):
             self._message("warn_title", t("warn_bad_path", p=root))
             return
         formats = [f for f in FORMATS if self.chips[f].isChecked()]
-        if not formats:
-            self._message("warn_title", t("warn_no_format"))
-            return
-        base = self._ask_base(formats, root)
-        if not base:
-            return
-        existing = [p for p in target_paths(base, formats) if os.path.exists(p)]
-        if existing and not GlassDialog.ask(
-            self,
-            t("overwrite_title"),
-            t("warn_overwrite", files="\n".join(os.path.basename(p) for p in existing)),
-            t("btn_continue"),
-            t("btn_cancel"),
-        ):
-            return
+        base = ""  # with no format ticked the program only scans: no "Save as", no file
+        if formats:
+            base = self._ask_base(formats, root)
+            if not base:
+                return
+            existing = [p for p in target_paths(base, formats) if os.path.exists(p)]
+            if existing and not GlassDialog.ask(
+                self,
+                t("overwrite_title"),
+                t("warn_overwrite", files="\n".join(os.path.basename(p) for p in existing)),
+                t("btn_continue"),
+                t("btn_cancel"),
+            ):
+                return
 
         self.path_field.edit.setText(root)
-        self.settings.set_last_save_dir(os.path.dirname(base))
+        if base:
+            self.settings.set_last_save_dir(os.path.dirname(base))
         self._save_settings()
 
         key = self.depth.current() or "2"
@@ -766,14 +777,19 @@ class MainWindow(QWidget):
             return
         self._set_state("done")
         folder = os.path.dirname(files[0]) if files else os.path.dirname(self._base)
-        text = t("done_msg") + "\n\n" + t(
-            "done_msg_info",
-            n=self._num(self._count),
-            s=self._num(self._skipped),
-            t=fmt_time(result.duration),
-            folder=folder,
-            files="\n".join("• " + os.path.basename(f) for f in files) or "–",
-        )
+        if self._base:
+            text = t("done_msg") + "\n\n" + t(
+                "done_msg_info",
+                n=self._num(self._count),
+                s=self._num(self._skipped),
+                t=fmt_time(result.duration),
+                folder=folder,
+                files="\n".join("• " + os.path.basename(f) for f in files) or "–",
+            )
+        else:  # scan only: no file was asked for
+            text = t("done_msg") + "\n\n" + t(
+                "done_msg_nofiles", n=self._num(self._count), s=self._num(self._skipped), t=fmt_time(result.duration)
+            )
         if result.exclude:
             text += t("done_msg_excluded", x=self._num(result.excluded))
         if errors:
@@ -803,6 +819,34 @@ class MainWindow(QWidget):
 
     def save_diagnostic_report(self, path: str) -> None:
         save_report(self.diagnostic_report_text(), path)
+
+    # ------------------------------------------------------------------ copy the list
+    def _can_copy(self) -> bool:
+        run = self.last_run
+        return run is not None and run.status == "completed" and run.result is not None and not run.result.cancelled
+
+    def _clipboard(self):
+        return QApplication.clipboard()
+
+    def _copy_list(self) -> None:
+        """Copy the folders of the last complete scan to the clipboard: full paths, one per line."""
+        if not self._can_copy():
+            return
+        t = self._tr
+        folders = self.last_run.result.folders
+        text = "\n".join(folders)
+        clipboard = self._clipboard()
+        clipboard.setText(text)
+        if clipboard.text().replace("\r\n", "\n") != text:  # another program may be holding the clipboard
+            GlassDialog.message(self, t("err_title"), t("copy_failed"), t("btn_ok"), "error")
+            return
+        self.last_run.clipboard_lines = len(folders)
+        self.btn_copy.set_look("ghost", "check", t("btn_copied", n=self._num(len(folders))))
+        QTimer.singleShot(2500, self._reset_copy_button)
+
+    def _reset_copy_button(self) -> None:
+        if self.state == "done" and self._can_copy():
+            self.btn_copy.set_look("ghost", "copy", self._tr("btn_copy"))
 
     def _modal_parent(self) -> QWidget:
         """The window that is open on top (so a dialog opened from it is not blocked), or this one."""

@@ -240,6 +240,7 @@ class RunRecord:
     errors: List[Tuple[str, str]] = field(default_factory=list)  # [(format, message)]
     fail_message: str = ""
     fail_trace: str = ""
+    clipboard_lines: int = 0  # folders copied to the clipboard with the "Copy list" button
 
 
 def needs_attention(run: Optional["RunRecord"]) -> bool:
@@ -368,7 +369,7 @@ def build_report(
         add(f"Kind of path: {path_kind(run.root, drive_type)}")
         add(f"Depth: {_depth_text(run.depth_key)}")
         add(f"System and hidden folders: {'included' if run.include_hidden else 'excluded'}")
-        add(f"Formats requested: {', '.join(f.upper() for f in run.formats) or 'none'}")
+        add(f"Formats requested: {', '.join(f.upper() for f in run.formats) or 'none (scan only)'}")
         result = run.result
         if result is not None:
             counts: Dict[str, int] = {}
@@ -419,6 +420,8 @@ def build_report(
                 main_font, fallbacks = pdf_font_info()
             except Exception:  # noqa: BLE001
                 main_font, fallbacks = None, []
+            if run.clipboard_lines:
+                add(f"Clipboard: {run.clipboard_lines:,} folders copied (paths only)")
             if main_font:
                 add(f"PDF main font: {main_font}")
                 add(f"PDF fallback fonts found: {', '.join(fallbacks) if fallbacks else 'none'}")

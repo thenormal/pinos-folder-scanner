@@ -58,9 +58,12 @@ class Settings:
         self._q.setValue("include_hidden", "true" if value else "false")
 
     def formats(self, allowed: List[str]) -> List[str]:
-        raw = str(self._q.value("formats", "pdf") or "")
+        """The formats ticked last time. Nothing ticked is a valid choice (the program only scans)."""
+        if not self._q.contains("formats"):
+            return ["pdf"]  # first start
+        raw = str(self._q.value("formats", "") or "")
         chosen = [f for f in raw.split(",") if f in allowed]
-        return chosen or ["pdf"]
+        return chosen if chosen or not raw.strip() else ["pdf"]  # unreadable text: the default
 
     def set_formats(self, formats: List[str]) -> None:
         self._q.setValue("formats", ",".join(formats))

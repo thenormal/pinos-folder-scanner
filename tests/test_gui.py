@@ -188,11 +188,79 @@ def main():
     win._on_start()
     assert len(messages) == 2
     win.path_field.edit.setText(tree)
+    print("checks on the path OK")
+
+    # --- scan only (no format ticked): no "Save as", no file; then "Copy list" puts the folders on the clipboard
     for chip in win.chips.values():
         chip.setChecked(False)
+    asked = []
+    win._ask_base = lambda formats, root: asked.append(formats) or ""
+    messages.clear()
     win._on_start()
-    assert len(messages) == 3 and win.state == "cancelled"
-    print("checks on path and formats OK")
+    assert win.state == "scanning" and win.btn_pause.isVisible() and not win.btn_copy.isVisible()
+    assert wait_for(lambda: win.state == "done"), win.state
+    assert not asked, "no format: the Save as window is not shown"
+    win._save_settings()
+    assert win.settings.formats(list(win.chips)) == [], "nothing ticked is remembered as nothing ticked"
+    win.settings._q.setValue("formats", "garbage")
+    assert win.settings.formats(list(win.chips)) == ["pdf"], "unreadable saved text: back to the default"
+    win._save_settings()
+    assert messages[-1][0] == "Scan complete" and "No file was created" in messages[-1][1] and "Copy list" in messages[-1][1]
+    assert win._count == 40 * 3
+    assert win.btn_copy.isVisible() and win.btn_copy.isEnabled() and win.btn_copy.text() == "Copy list"
+    assert not win.btn_pause.isVisible() and not win.btn_cancel.isVisible(), "Copy list replaces Pause and Cancel"
+
+    class FakeClipboard:
+        def __init__(self, works=True):
+            self.value, self.works = "", works
+
+        def setText(self, text):  # noqa: N802
+            if self.works:
+                self.value = text
+
+        def text(self):
+            return self.value
+
+    clip = FakeClipboard()
+    win._clipboard = lambda: clip
+    win.btn_copy.click()
+    expected = "\n".join(win.last_run.result.folders)
+    assert clip.value == expected and len(clip.value.splitlines()) == 120
+    assert clip.value.splitlines() == sorted(clip.value.splitlines(), key=lambda p: [x.casefold() for x in p.split(os.sep)])
+    assert not clip.value.endswith("\n") and "\r" not in clip.value
+    assert win.btn_copy.text() == "Copied (120 folders)" and win.last_run.clipboard_lines == 120
+    win._reset_copy_button()
+    assert win.btn_copy.text() == "Copy list"
+    report = win.diagnostic_report_text()
+    assert "Clipboard: 120 folders copied (paths only)" in report and "Formats requested: none (scan only)" in report
+    broken = FakeClipboard(works=False)  # another program holds the clipboard: the person is told
+    win._clipboard = lambda: broken
+    before = len(messages)
+    win.btn_copy.click()
+    assert len(messages) == before + 1 and messages[-1][2] == "error" and "could not be copied" in messages[-1][1]
+    win._clipboard = lambda: clip
+    win.set_language("it")
+    assert win.btn_copy.text() == "Copia elenco"
+    win.btn_copy.click()
+    assert win.btn_copy.text() == "Copiato (120 cartelle)"
+    win.set_language("en")
+    # a new scan brings Pause and Cancel back; a cancelled scan has nothing to copy
+    win.chips["csv"].setChecked(True)
+    base_c = os.path.join(out, "after_copy")
+    win._ask_base = lambda formats, root: base_c
+    win._on_start()
+    assert win.btn_pause.isVisible() and not win.btn_copy.isVisible()
+    assert wait_for(lambda: win.state == "done") and os.path.exists(base_c + ".csv")
+    assert win.btn_copy.isVisible() and "Files created in" in messages[-1][1]
+    win.last_run.result.folders = []
+    win._set_state("done")
+    assert win.btn_copy.isVisible() and not win.btn_copy.isEnabled(), "an empty list: nothing to copy"
+    win.btn_copy.click()
+    assert clip.value != "", "an empty list does not overwrite the clipboard"
+    win.chips["csv"].setChecked(False)
+    win._set_state("cancelled")
+    assert not win.btn_copy.isVisible() and win.btn_pause.isVisible()
+    print("scan only and Copy list OK")
 
     assert win.btn_start.text() == "Start scan" and win.cap_depth.text() == "SCAN DEPTH"
     print("texts OK")

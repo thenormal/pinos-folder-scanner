@@ -177,6 +177,15 @@ def main() -> None:
     assert "Exclusion by name" not in build_report(run, env, "", Masker(), datetime.now())
     print("exclusion in the report OK")
 
+    # --- the Copy list button and a scan with no format
+    run.clipboard_lines = 1234
+    run.formats = []
+    text = build_report(run, env, "", Masker(), datetime.now())
+    assert "Clipboard: 1,234 folders copied (paths only)" in text and "Formats requested: none (scan only)" in text
+    run.clipboard_lines = 0
+    assert "Clipboard:" not in build_report(run, env, "", Masker(), datetime.now())
+    print("clipboard line in the report OK")
+
     # --- when a report is worth offering: only for real problems
     assert not needs_attention(None)
     assert needs_attention(failed)  # the scan failed

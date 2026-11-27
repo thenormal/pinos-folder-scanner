@@ -35,7 +35,7 @@ One release with all of this. The work is done in small steps, each one tried on
 ### Filters and clipboard
 
 - Exclude folders by name (for example `node_modules` or `.git`). *Progress: done. A field in the main window takes names separated by commas or semicolons; upper and lower case do not matter, `*` and `?` work as wildcards, a folder left out is not opened (so nothing inside it is listed) and the starting folder is never left out. The exported files and the final message say what was left out; the diagnostic report only counts them.*
-- Copy the list to the clipboard without saving a file.
+- Copy the list to the clipboard without saving a file. *Progress: done. With no format ticked the program only scans (no "Save as", no file); when a scan is complete a **Copy list** button, in the place of Pause and Cancel, copies the full paths, one per line, in alphabetical order. It also works after a scan that created files.*
 
 ## Ideas, no version yet
 
