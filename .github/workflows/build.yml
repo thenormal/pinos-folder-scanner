@@ -28,10 +28,15 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install the requirements
         run: python -m pip install -r requirements.txt
+
+      - name: Install the tools used only by the tests
+        run: python -m pip install -r requirements-dev.txt
 
       - name: Scanner and export tests
         run: python tests/test_core.py
