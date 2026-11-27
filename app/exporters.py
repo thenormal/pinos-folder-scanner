@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Callable, Dict, List, Optional, Tuple
 from xml.sax.saxutils import escape as xml_escape
 
-from .i18n import tr
+from .i18n import format_int, tr
 from .scanner import ScanResult, SkippedFolder
 
 PROGRAM_NAME = "Pino's Folder Scanner"
@@ -61,7 +61,7 @@ def _summary_rows(ctx: ExportContext) -> List[Tuple[str, str]]:
         (tr(L, "rep_date"), ctx.generated_at.strftime("%Y-%m-%d %H:%M:%S")),
         (tr(L, "rep_depth"), ctx.depth_label),
         (tr(L, "rep_hidden"), tr(L, "rep_hidden_yes" if r.include_hidden else "rep_hidden_no")),
-        (tr(L, "rep_total"), f"{len(r.folders):,}"),
+        (tr(L, "rep_total"), format_int(len(r.folders), L)),
         (tr(L, "rep_skipped_count"), str(len(r.skipped))),
         (tr(L, "rep_duration"), _format_duration(r.duration)),
     ]
@@ -372,6 +372,41 @@ def _pdf_font_chain() -> List[Tuple[str, frozenset]]:
     return chain
 
 
+def _font_runs(text: str) -> List[List[str]]:
+    """[[font name, text], ...]: the text cut where the font has to change (main font, then fallbacks)."""
+    chain = _pdf_font_chain()
+    main_name, main_cov = chain[0]
+    runs: List[List[str]] = []
+    for ch in text:
+        target = main_name
+        if ch not in main_cov:
+            for name, cov in chain[1:]:
+                if ch in cov:
+                    target = name
+                    break
+        if runs and runs[-1][0] == target:
+            runs[-1][1] += ch
+        else:
+            runs.append([target, ch])
+    return runs
+
+
+def _draw_text(canvas, text: str, x: float, y: float, size: float, right: bool = False) -> None:
+    """Draw a line of text straight on the page, using the fallback fonts where the main one lacks a character.
+
+    (Paragraphs do this through _pdf_markup; text drawn directly, like the page footer, needs it too.)
+    """
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    runs = _font_runs(text)
+    if right:
+        x -= sum(stringWidth(piece, name, size) for name, piece in runs)
+    for name, piece in runs:
+        canvas.setFont(name, size)
+        canvas.drawString(x, y, piece)
+        x += stringWidth(piece, name, size)
+
+
 def _pdf_markup(text: str) -> str:
     """Text ready for a Paragraph: special characters escaped and fallback fonts where needed."""
     text = _clean(text)
@@ -524,10 +559,9 @@ def export_pdf(ctx: ExportContext, path: str) -> List[str]:
             self.setStrokeColor(colors.HexColor("#d1d5db"))
             self.setLineWidth(0.5)
             self.line(18 * mm, 15 * mm, width - 18 * mm, 15 * mm)
-            self.setFont(font, 8.5)
             self.setFillColor(muted)
-            self.drawString(18 * mm, 10 * mm, footer_left)
-            self.drawRightString(width - 18 * mm, 10 * mm, page_tpl.format(p=self._pageNumber, n=total))
+            _draw_text(self, footer_left, 18 * mm, 10 * mm, 8.5)
+            _draw_text(self, page_tpl.format(p=self._pageNumber, n=total), width - 18 * mm, 10 * mm, 8.5, right=True)
 
     doc = BaseDocTemplate(
         path,

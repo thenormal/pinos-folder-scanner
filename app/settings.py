@@ -11,10 +11,24 @@ from .i18n import LANGUAGES
 DEPTH_KEYS = ["0", "1", "2", "3", "all"]
 
 
-def detect_system_language() -> str:
-    name = QLocale.system().name().lower()  # e.g. "it_it", "en_us"
+def language_for_locale(name: str) -> str:
+    """The program language for a locale name such as "it_IT", "en_US" or "zh_CN".
+
+    Chinese is Simplified Chinese: it is chosen automatically only for the Simplified locales
+    (China, Singapore); for Traditional Chinese (Taiwan, Hong Kong, Macau) English is used, instead
+    of showing characters the person does not use.
+    """
+    name = name.lower().replace("-", "_")
     code = name.split("_")[0]
+    if code == "zh":
+        parts = name.split("_")[1:]
+        simplified = "hans" in parts or any(part in ("cn", "sg") for part in parts)
+        return "zh" if simplified and "hant" not in parts else "en"
     return code if code in LANGUAGES else "en"
+
+
+def detect_system_language() -> str:
+    return language_for_locale(QLocale.system().name())  # e.g. "it_IT", "en_US", "zh_CN"
 
 
 class Settings:
