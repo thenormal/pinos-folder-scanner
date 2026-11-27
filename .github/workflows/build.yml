@@ -36,6 +36,9 @@ jobs:
       - name: Scanner and export tests
         run: python tests/test_core.py
 
+      - name: Diagnostic report tests
+        run: python tests/test_diagnostics.py
+
       - name: Window tests
         env:
           QT_QPA_PLATFORM: offscreen

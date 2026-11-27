@@ -14,21 +14,25 @@ First public release: scan a drive or folder and export its subfolder list to PD
 - Drag a folder onto the window to choose it.
 - Automatic build on GitHub Actions: the `.exe` attached to each release is built from the public source.
 
-## 1.2 – Diagnostics and feedback (planned)
+## 1.2 – Diagnostics, languages, filters and clipboard (planned)
 
-- **Diagnostic report** of the last scan, saved as a text file wherever you choose with *Save as*. It contains the version, Windows, Python and Qt versions, the language and the screen scale; the scan options and results (folders found, folders skipped by reason, duration, time in pause, folders per second); the kind of path (local, network or removable); time and size of each export, and the fonts used in the PDF; the five slowest folders to read; the last lines of `errors.log`.
-- **Privacy:** every folder name in the report is replaced by a code (for example `D:\f_3a9c\f_71be`), always, with no option to show the real names. No user name, no computer name. Nothing is ever sent by the program: you decide what to attach to a report. A test checks that no real name appears in the report.
+One release with all of this. The work is done in small steps, each one tried on Windows before it is merged; the release is published when everything is in and no problem is open.
+
+### Diagnostics and feedback
+
+- **Diagnostic report** of the last scan, saved as a text file wherever you choose with *Save as*. It contains the version, Windows, Python and Qt versions, the language and the screen scale; the scan options and results (folders found, folders skipped by reason, duration, time in pause, folders per second); the kind of path (local, network or removable); time and size of each export, and the fonts used in the PDF; the five slowest folders to read; the last lines of `errors.log`. *Progress: the report itself is written and tested, it has no button yet.*
+- **Privacy:** every folder name in the report is replaced by a code (for example `D:\Photos` becomes `<drive>\f_3a9c1e`), always, with no option to show the real names. No user name, no computer name. Nothing is ever sent by the program: you decide what to attach to a report. Tests check that no real name appears in the report.
 - **Info window** (an "i" button next to the heart): version, links (GitHub, issues, Ko-fi, README), *Save diagnostic report* and *Report a problem* (opens the GitHub new-issue page already filled with the version and Windows, which you can read before sending).
 - **Offer to save the report** in the window shown at the end of a scan, only when something really went wrong: a format could not be created, the scan failed because of an unexpected error, or folders were skipped because of an unexpected system error. Folders skipped for "access denied" or "not found" are normal and do not trigger it.
 - Issue forms in the repository (bug report, idea) and a README note on what the report contains.
 
-## 1.3 – More languages (planned)
+### More languages
 
 - Spanish, French, German, Portuguese, Dutch and Chinese.
 - The language switch becomes a drop-down menu; the language of Windows is used by default.
 - Issue form to report a translation to fix. Translations are not checked by native speakers yet: corrections are welcome.
 
-## 1.4 – Filters and clipboard (planned)
+### Filters and clipboard
 
 - Exclude folders by name (for example `node_modules` or `.git`).
 - Copy the list to the clipboard without saving a file.

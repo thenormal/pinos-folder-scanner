@@ -10,9 +10,10 @@ import html
 import json
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 from xml.sax.saxutils import escape as xml_escape
 
 from .i18n import tr
@@ -280,11 +281,18 @@ def export_html(ctx: ExportContext, path: str) -> List[str]:
 
 # ---------------------------------------------------------------- PDF
 _pdf_fonts: Tuple[str, str] | None = None
+_pdf_main_file: Optional[str] = None  # file name of the main PDF font (for the diagnostic report)
+_pdf_fallback_files: List[str] = []  # file names of the fallback fonts that could be loaded
+
+
+def pdf_font_info() -> Tuple[Optional[str], List[str]]:
+    """(main font file, fallback font files) used for the PDF; (None, []) until a PDF was made."""
+    return _pdf_main_file, list(_pdf_fallback_files)
 
 
 def _register_pdf_fonts() -> Tuple[str, str]:
     """Register a Unicode font (Segoe UI / Arial on Windows). If none is found, use Helvetica."""
-    global _pdf_fonts
+    global _pdf_fonts, _pdf_main_file
     if _pdf_fonts:
         return _pdf_fonts
     from reportlab.pdfbase import pdfmetrics
@@ -306,10 +314,12 @@ def _register_pdf_fonts() -> Tuple[str, str]:
                     "AppFont", normal="AppFont", bold="AppFont-Bold", italic="AppFont", boldItalic="AppFont-Bold"
                 )
                 _pdf_fonts = ("AppFont", "AppFont-Bold")
+                _pdf_main_file = os.path.basename(regular)
                 return _pdf_fonts
             except Exception:
                 continue
     _pdf_fonts = ("Helvetica", "Helvetica-Bold")
+    _pdf_main_file = "Helvetica (built in, no Unicode)"
     return _pdf_fonts
 
 
@@ -355,6 +365,7 @@ def _pdf_font_chain() -> List[Tuple[str, frozenset]]:
         try:
             pdfmetrics.registerFont(TTFont(name, full, subfontIndex=index))
             chain.append((name, _font_coverage(name)))
+            _pdf_fallback_files.append(os.path.basename(full))
         except Exception:  # unusable font (e.g. PostScript outlines): try the next one
             continue
     _pdf_chain = chain
@@ -549,16 +560,36 @@ def target_paths(base: str, formats: List[str]) -> List[str]:
     return [f"{base}.{fmt}" for fmt in formats]
 
 
-def export_all(ctx: ExportContext, formats: List[str], base: str) -> Tuple[List[str], List[Tuple[str, str]]]:
+def export_all(
+    ctx: ExportContext,
+    formats: List[str],
+    base: str,
+    stats: Optional[Dict[str, Dict[str, object]]] = None,
+) -> Tuple[List[str], List[Tuple[str, str]]]:
     """Create all the requested formats. An error in one format does not block the others.
 
     Returns (files_created, errors) where errors = [(format, message)].
+    If `stats` is given it is filled with, for each format, the seconds it took, the size of
+    the files created and the error message if any (used by the diagnostic report).
     """
     created: List[str] = []
     errors: List[Tuple[str, str]] = []
     for fmt in formats:
+        started = time.perf_counter()
+        files: List[str] = []
+        error: Optional[str] = None
         try:
-            created += EXPORTERS[fmt](ctx, f"{base}.{fmt}")
+            files = EXPORTERS[fmt](ctx, f"{base}.{fmt}")
+            created += files
         except Exception as exc:  # noqa: BLE001 - keep going with the other formats
-            errors.append((fmt.upper(), str(exc)))
+            error = str(exc)
+            errors.append((fmt.upper(), error))
+        if stats is not None:
+            size = 0
+            for path in files:
+                try:
+                    size += os.path.getsize(path)
+                except OSError:
+                    pass
+            stats[fmt] = {"seconds": time.perf_counter() - started, "bytes": size, "files": len(files), "error": error}
     return created, errors

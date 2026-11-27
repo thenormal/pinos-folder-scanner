@@ -7,13 +7,9 @@ import traceback
 
 
 def _log_path() -> str:
-    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-    folder = os.path.join(base, "PinosFolderScanner")
-    try:
-        os.makedirs(folder, exist_ok=True)
-    except OSError:
-        folder = os.path.expanduser("~")
-    return os.path.join(folder, "errors.log")
+    from app.diagnostics import error_log_path
+
+    return error_log_path()
 
 
 def _install_error_hook() -> None:
