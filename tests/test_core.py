@@ -211,11 +211,18 @@ def main():
         print("exports in every language OK")
 
         # Chinese in the PDF: the title, the summary and the page footer must use a font that has the characters.
-        # (Needs a Chinese font on the computer: Microsoft YaHei on Windows. Without one the check is skipped.)
+        # (Needs a Chinese font on the computer, Microsoft YaHei on Windows, and the test-only tool pypdf;
+        # without one of them the check is skipped.)
         from app.exporters import pdf_font_info
-        from pypdf import PdfReader
 
-        if pdf_font_info()[1]:
+        try:
+            from pypdf import PdfReader
+        except ImportError:
+            PdfReader = None
+
+        if PdfReader is None:
+            print("Chinese PDF check skipped: pypdf is not installed (pip install pypdf)")
+        elif pdf_font_info()[1]:
             text_zh = "\n".join(page.extract_text() for page in PdfReader(os.path.join(tmp, "export_zh.pdf")).pages)
             assert STRINGS["zh"]["rep_title"] in text_zh and STRINGS["zh"]["rep_total"] in text_zh, "Chinese text in the PDF body"
             assert "第" in text_zh and "页，共" in text_zh, "Chinese page footer in the PDF (drawn with a fallback font)"

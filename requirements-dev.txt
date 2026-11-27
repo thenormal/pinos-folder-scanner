@@ -1,0 +1,2 @@
+# Used only by the tests (tests/test_core.py reads the text of a PDF with it). The program does not need it.
+pypdf>=4.0
