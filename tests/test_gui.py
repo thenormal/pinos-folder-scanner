@@ -165,7 +165,7 @@ def main():
 
     # --- Italian: switch the window and back, the texts and the saved choice follow
     from app.i18n import LANGUAGES, STRINGS
-    assert LANGUAGES == ["en", "it"]
+    assert LANGUAGES == ["en", "it", "de", "es", "fr"]
     win.set_language("it")
     assert win.btn_start.text() == STRINGS["it"]["btn_start"] == "Avvia scansione"
     assert win.titlebar.support.toolTip() == STRINGS["it"]["support_tip"]
@@ -173,28 +173,65 @@ def main():
     win.set_language("en")
     assert win.btn_start.text() == "Start scan" and win.settings.language() == "en"
 
-    # a real click on the switch: the press must be accepted, otherwise the title bar takes it
-    # (to move the window) and the release never reaches the switch
+    # a real click on the language menu: the press must be accepted, otherwise the title bar takes
+    # it (to move the window) and the release never reaches the menu
     from PySide6.QtCore import QEvent
     from PySide6.QtGui import QMouseEvent
 
-    sw = win.titlebar.lang
+    menu_btn = win.titlebar.lang
+    assert menu_btn.width() < 100 and menu_btn.current() == "en"
 
-    def mouse(kind, x):
-        pos = QPointF(x, sw.height() / 2)
-        ev = QMouseEvent(kind, pos, sw.mapToGlobal(pos), Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
-        return ev
+    def mouse(kind, x=None):
+        pos = QPointF(menu_btn.width() / 2 if x is None else x, menu_btn.height() / 2)
+        return QMouseEvent(
+            kind, pos, menu_btn.mapToGlobal(pos), Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier
+        )
 
-    right = sw.width() * 0.75  # the IT half
-    press = mouse(QEvent.Type.MouseButtonPress, right)
+    press = mouse(QEvent.Type.MouseButtonPress)
     press.ignore()
-    sw.mousePressEvent(press)
-    assert press.isAccepted(), "the language switch must accept the mouse press"
-    sw.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease, right))
-    assert win.lang == "it" and win.btn_start.text() == "Avvia scansione"
-    left = sw.width() * 0.25
-    sw.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease, left))
+    menu_btn.mousePressEvent(press)
+    assert press.isAccepted(), "the language menu must accept the mouse press"
+
+    listed = []
+    pick = {"lang": "it"}
+
+    def fake_run(menu):  # replaces menu.exec: records the entries and "clicks" one
+        entries = [(a.data(), a.text(), a.isChecked()) for a in menu.actions()]
+        listed.append(entries)
+        return next(a for a in menu.actions() if a.data() == pick["lang"])
+
+    menu_btn._run_menu = fake_run
+    menu_btn.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease))  # a click on the pill opens the menu
+    assert [e[0] for e in listed[0]] == LANGUAGES
+    assert [e[1] for e in listed[0]] == ["English", "Italiano", "Deutsch", "Español", "Français"]
+    assert [e[0] for e in listed[0] if e[2]] == ["en"], "the current language is ticked"
+    assert win.lang == "it" and win.btn_start.text() == "Avvia scansione" and menu_btn.current() == "it"
+    pick["lang"] = "en"
+    menu_btn.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease))
     assert win.lang == "en" and win.btn_start.text() == "Start scan"
+    n = len(listed)
+    menu_btn.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease, -5))  # released outside: nothing
+    assert len(listed) == n
+    pick["lang"] = "en"
+    menu_btn.open_menu()  # choosing the language already in use changes nothing
+    assert win.lang == "en"
+
+    # every language: the window and the final message work, texts change, the language is remembered
+    for lang in LANGUAGES:
+        win.set_language(lang)
+        assert win.btn_start.text() == STRINGS[lang]["btn_start"] and win.settings.language() == lang
+        assert win.titlebar.info.toolTip() == STRINGS[lang]["info_tip"]
+    from app.i18n import UNVERIFIED_LANGUAGES
+
+    shown_text = []
+    GlassDialog.info_window = staticmethod(lambda parent, title, text, *a: shown_text.append(text))
+    for lang in LANGUAGES:
+        win.set_language(lang)
+        win._open_info()
+        has_note = STRINGS[lang]["info_unverified"] in shown_text[-1]
+        assert has_note == (lang in UNVERIFIED_LANGUAGES), lang
+    assert UNVERIFIED_LANGUAGES == {"de", "es", "fr"}
+    win.set_language("en")
     print("Italian OK")
 
     # --- Ko-fi heart: the click opens the page, the tooltip is translated

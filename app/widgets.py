@@ -614,57 +614,95 @@ class DepthSelector(QWidget):
 
 
 # ------------------------------------------------------------------ title bar
-class LangSwitch(QWidget):
+class LanguageMenu(QWidget):
+    """Drop-down menu for the language: a small pill with the code (IT) that opens the list of names."""
+
     changed = Signal(str)
 
-    def __init__(self, languages: List[str], parent: Optional[QWidget] = None):
+    def __init__(self, languages: List[str], names: Dict[str, str], parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self._langs = languages
-        self._current = languages[0]
-        self.setFixedSize(34 * len(languages) + 38, 32)
+        self._langs = list(languages)
+        self._names = dict(names)
+        self._current = self._langs[0]
+        self._hover = False
+        self.setFixedSize(70, 32)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+
+    def current(self) -> str:
+        return self._current
 
     def set_current(self, lang: str) -> None:
         self._current = lang
         self.update()
 
+    def enterEvent(self, event):  # noqa: N802
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):  # noqa: N802
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
     def mousePressEvent(self, event):  # noqa: N802
         # Accept the press: otherwise it goes up to the title bar, which starts moving the
-        # window and the release never reaches this switch.
+        # window and the release never reaches this menu.
         event.accept()
 
     def mouseReleaseEvent(self, event):  # noqa: N802
-        if event.button() != Qt.MouseButton.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.position().toPoint()):
+            self.open_menu()
+
+    def keyPressEvent(self, event):  # noqa: N802
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space, Qt.Key.Key_Down):
+            self.open_menu()
+        else:
+            super().keyPressEvent(event)
+
+    def _run_menu(self, menu: QMenu):
+        return menu.exec(self.mapToGlobal(QPointF(self.width() - menu.sizeHint().width(), self.height() + 6).toPoint()))
+
+    def open_menu(self) -> None:
+        if not self.isEnabled():
             return
-        seg = self.width() / len(self._langs)
-        idx = max(0, min(len(self._langs) - 1, int(event.position().x() // seg)))
-        lang = self._langs[idx]
-        if lang != self._current:
-            self._current = lang
-            self.update()
-            self.changed.emit(lang)
+        menu = QMenu(self)
+        menu.setWindowFlags(menu.windowFlags() | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        menu.setMinimumWidth(190)
+        menu.setFont(ui_font(14))
+        menu.setStyleSheet(
+            "QMenu{background:#17164a;border:1px solid rgba(255,255,255,60);border-radius:14px;padding:6px;color:#f4f6ff;}"
+            "QMenu::item{padding:9px 18px 9px 12px;border-radius:9px;}"
+            "QMenu::item:selected{background:rgba(94,234,212,60);}"
+            "QMenu::indicator{width:16px;height:16px;}"
+        )
+        for lang in self._langs:
+            action = menu.addAction(self._names.get(lang, lang))
+            action.setCheckable(True)
+            action.setChecked(lang == self._current)
+            action.setData(lang)
+        chosen = self._run_menu(menu)
+        if chosen is not None:
+            lang = chosen.data()
+            if lang != self._current:
+                self._current = lang
+                self.update()
+                self.changed.emit(lang)
 
     def paintEvent(self, _event):  # noqa: N802
         p = new_painter(self)
+        if not self.isEnabled():
+            p.setOpacity(0.5)
         r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        p.setBrush(white(0.08))
-        p.setPen(QPen(white(0.12), 1))
+        p.setBrush(white(0.14 if self._hover else 0.08))
+        p.setPen(QPen(white(0.30 if self.hasFocus() else 0.12), 1))
         p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
-        seg = (r.width() - 6) / len(self._langs)
-        for i, lang in enumerate(self._langs):
-            sr = QRectF(r.left() + 3 + i * seg, r.top() + 3, seg, r.height() - 6)
-            if lang == self._current:
-                g = QLinearGradient(sr.topLeft(), sr.topRight())
-                g.setColorAt(0, TEAL)
-                g.setColorAt(1, INDIGO)
-                p.setBrush(QBrush(g))
-                p.setPen(Qt.PenStyle.NoPen)
-                p.drawRoundedRect(sr, sr.height() / 2, sr.height() / 2)
-                p.setPen(INK_DARK)
-            else:
-                p.setPen(white(0.70))
-            p.setFont(ui_font(12, QFont.Weight.ExtraBold, spacing=0.7))
-            p.drawText(sr, int(Qt.AlignmentFlag.AlignCenter), lang.upper())
+        p.setFont(ui_font(12, QFont.Weight.ExtraBold, spacing=0.7))
+        p.setPen(white(0.92))
+        p.drawText(QRectF(14, 0, 32, r.height()), int(Qt.AlignmentFlag.AlignCenter), self._current.upper())
+        draw_icon(p, "chevron", centered(self.width() - 19, self.height() / 2, 14), white(0.8), stroke=2.2)
 
 
 class WinButton(QAbstractButton):
@@ -769,7 +807,7 @@ class InfoButton(QAbstractButton):
 
 
 class TitleBar(QWidget):
-    def __init__(self, window: QWidget, languages: List[str], parent: Optional[QWidget] = None):
+    def __init__(self, window: QWidget, languages: List[str], names: Dict[str, str], parent: Optional[QWidget] = None):
         super().__init__(parent)
         self._window = window
         self.setFixedHeight(52)
@@ -796,8 +834,8 @@ class TitleBar(QWidget):
         self.support = SupportButton()
         lay.addWidget(self.support)
         lay.addSpacing(4)
-        self.lang = LangSwitch(languages)
-        if len(languages) > 1:  # the switch only appears when there is more than one language
+        self.lang = LanguageMenu(languages, names)
+        if len(languages) > 1:  # the menu only appears when there is more than one language
             lay.addWidget(self.lang)
             lay.addSpacing(10)
         else:

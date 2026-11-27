@@ -111,6 +111,13 @@ class GlassDialog(QDialog):
             row.addWidget(button)
         outer.addLayout(row)
 
+    def showEvent(self, event):  # noqa: N802
+        # With long texts the window could open a few pixels too small and cut the last line.
+        hint = self.sizeHint()
+        if self.height() < hint.height() or self.width() < hint.width():
+            self.resize(max(self.width(), hint.width()), max(self.height(), hint.height()))
+        super().showEvent(event)
+
     def keyPressEvent(self, event: QKeyEvent):  # noqa: N802
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             self.done(self._default_value)

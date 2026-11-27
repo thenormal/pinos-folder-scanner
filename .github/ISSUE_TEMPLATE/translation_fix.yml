@@ -1,0 +1,46 @@
+name: Fix a translation
+description: A text in the program is wrong, unclear or sounds unnatural
+labels: ["translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The translations were written by the author and have not been checked by native speakers yet, so corrections are very welcome. Thank you!
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options:
+        - Deutsch
+        - Español
+        - Français
+        - Italiano
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where in the program?
+      description: For example the main window, a message, the info window, or an exported file.
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current text
+      description: Copy the text as it appears now, or attach a screenshot.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Better text
+      description: Your suggestion, and why if it is not obvious.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Program version
+      description: Shown in the title bar of the program.

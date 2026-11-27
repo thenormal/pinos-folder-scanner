@@ -36,7 +36,7 @@ from .diagnostics import (
     system_summary,
 )
 from .exporters import FORMATS, PROGRAM_NAME, target_paths
-from .i18n import LANGUAGES
+from .i18n import LANGUAGE_NAMES, LANGUAGES, UNVERIFIED_LANGUAGES
 from .icon import app_icon
 from . import __version__
 from .links import ISSUES_URL, KOFI_URL, README_URL, REPO_URL, new_issue_url, open_support_page, open_url
@@ -203,7 +203,7 @@ class MainWindow(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        self.titlebar = TitleBar(self, LANGUAGES)
+        self.titlebar = TitleBar(self, LANGUAGES, LANGUAGE_NAMES)
         self.titlebar.lang.changed.connect(self.set_language)
         self.titlebar.support.clicked.connect(self._open_support)
         self.titlebar.info.clicked.connect(self._open_info)
@@ -819,10 +819,11 @@ class MainWindow(QWidget):
 
     def _open_info(self) -> None:
         t = self._tr
+        unverified = "\n\n" + t("info_unverified") if self.lang in UNVERIFIED_LANGUAGES else ""
         GlassDialog.info_window(
             self,
             t("app_title"),
-            t("info_version", v=__version__) + "\n\n" + t("info_text"),
+            t("info_version", v=__version__) + "\n\n" + t("info_text") + unverified,
             [
                 ("GitHub", lambda: open_url(REPO_URL)),
                 ("Issues", lambda: open_url(ISSUES_URL)),
