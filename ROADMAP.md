@@ -14,9 +14,9 @@ First public release: scan a drive or folder and export its subfolder list to PD
 - Drag a folder onto the window to choose it.
 - Automatic build on GitHub Actions: the `.exe` attached to each release is built from the public source.
 
-## 1.2 – Diagnostics, languages, filters and clipboard (planned)
+## 1.2 – Diagnostics, languages, filters and clipboard (ready, not yet released)
 
-One release with all of this. The work is done in small steps, each one tried on Windows before it is merged; the release is published when everything is in and no problem is open.
+One release with all of this. The work was done in small steps, each one tried on Windows before it was merged. Everything is in and the version number is 1.2; the release is published after a last test of the executable in every language.
 
 ### Diagnostics and feedback
 
