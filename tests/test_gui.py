@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 import time
+from datetime import datetime
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -25,7 +26,9 @@ import app.scanner as scanner_mod  # noqa: E402
 from app.dialogs import GlassDialog  # noqa: E402
 from app.settings import Settings  # noqa: E402
 import app.window as window_mod  # noqa: E402
-from app.links import KOFI_URL  # noqa: E402
+from app.links import ISSUES_URL, KOFI_URL, README_URL, REPO_URL  # noqa: E402
+from app.diagnostics import RunRecord  # noqa: E402
+from app.scanner import ScanResult, SkippedFolder  # noqa: E402
 from app.window import MainWindow, dropped_folder  # noqa: E402
 
 qt = QApplication(sys.argv)
@@ -202,6 +205,82 @@ def main():
     win.titlebar.support.click()
     assert opened == [KOFI_URL]
     print("Ko-fi button OK")
+
+    # --- "i" button: info window, links, saving the report, report a problem
+    from PySide6.QtWidgets import QFileDialog
+
+    opened_urls = []
+    window_mod.open_url = lambda url: opened_urls.append(url) or True
+    shown = {}
+
+    def fake_info_window(parent, title, text, links, actions, close_text):
+        shown.update(title=title, text=text, links=dict(links), actions=dict(actions), close=close_text)
+
+    GlassDialog.info_window = staticmethod(fake_info_window)
+    assert win.titlebar.info.toolTip() == "About and diagnostics"
+    win.titlebar.info.click()
+    assert shown["title"] == "Pino's Folder Scanner" and shown["text"].startswith("Version ")
+    assert "never sends anything" in shown["text"] and shown["close"] == "Close"
+    assert list(shown["links"]) == ["GitHub", "Issues", "Ko-fi", "README"]
+    for name, url in (("GitHub", REPO_URL), ("Issues", ISSUES_URL), ("Ko-fi", KOFI_URL), ("README", README_URL)):
+        shown["links"][name]()
+        assert opened_urls[-1] == url
+    shown["actions"]["Report a problem"]()
+    assert "/issues/new?template=bug_report.yml" in opened_urls[-1] and "version=" in opened_urls[-1]
+    assert "windows=" in opened_urls[-1]
+    report_path = os.path.join(tmp, "info_report.txt")
+    QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (report_path, ""))
+    before = len(messages)
+    shown["actions"]["Save diagnostic report"]()
+    assert os.path.isfile(report_path) and open(report_path, encoding="utf-8-sig").read().startswith("Pino")
+    assert messages[before][0] == "Report saved" and report_path in messages[before][1]
+    QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: ("", ""))
+    os.remove(report_path)
+    shown["actions"]["Save diagnostic report"]()  # cancelled: nothing is written
+    assert not os.path.exists(report_path)
+    QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (os.path.join(tmp, "no_such_folder", "r.txt"), ""))
+    before = len(messages)
+    shown["actions"]["Save diagnostic report"]()  # cannot be written: an error message, no crash
+    assert messages[before][2] == "error" and "could not be saved" in messages[before][1]
+    print("info window OK")
+
+    # --- the offer at the end of a scan: only when something really went wrong
+    offers = []
+    answers = []
+
+    def fake_choose(parent, title, text, buttons, tone="info"):
+        offers.append((title, text, [b[0] for b in buttons], tone))
+        return answers.pop(0) if answers else 1
+
+    GlassDialog.choose = staticmethod(fake_choose)
+    win.last_run = RunRecord(datetime.now(), tree, "all", False, ["txt"])
+    normal = ScanResult(tree, 99, False)
+    normal.skipped = [SkippedFolder("X:\\a", "denied"), SkippedFolder("X:\\b", "notfound")]
+    before = len(messages)
+    win._on_finished(normal, [os.path.join(out, "ok.txt")], [])
+    assert not offers and len(messages) == before + 1 and "diagnostic" not in messages[-1][1]
+    bad = ScanResult(tree, 99, False)
+    bad.skipped = [SkippedFolder("X:\\c", "error", "disk error")]
+    win.last_run = RunRecord(datetime.now(), tree, "all", False, ["txt"])
+    answers[:] = [3, 2, 1]  # Report a problem, Save the report, OK
+    saved_to = os.path.join(tmp, "offer_report.txt")
+    QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (saved_to, ""))
+    n_urls = len(opened_urls)
+    win._on_finished(bad, [os.path.join(out, "ok.txt")], [])
+    assert len(offers) == 3 and offers[0][2] == ["Report a problem", "Save diagnostic report", "OK"]
+    assert "Something did not work as expected" in offers[0][1] and offers[0][3] == "warn"
+    assert len(opened_urls) == n_urls + 1 and os.path.isfile(saved_to)
+    offers.clear()
+    win.last_run = RunRecord(datetime.now(), tree, "all", False, ["pdf"])
+    win._on_finished(normal, [], [("pdf", "no space left")])  # a format could not be created
+    assert len(offers) == 1 and "no space left" in offers[0][1]
+    offers.clear()
+    win.last_run = RunRecord(datetime.now(), tree, "all", False, ["pdf"])
+    win._on_failed("boom")
+    assert len(offers) == 1 and offers[0][3] == "error" and "boom" in offers[0][1]
+    GlassDialog.choose = staticmethod(lambda *a, **k: 1)
+    win.last_run = None
+    print("offer at the end of a scan OK")
 
     # --- drag and drop of a folder, a drive or a file onto the window
     def make_mime(*paths):

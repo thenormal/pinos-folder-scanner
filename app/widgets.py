@@ -737,6 +737,37 @@ class SupportButton(QAbstractButton):
         draw_icon(p, "heart_fill" if self._hover else "heart", icon, self.HEART, stroke=1.8)
 
 
+class InfoButton(QAbstractButton):
+    """Small "i" in the title bar: opens the information window (version, links, diagnostic report)."""
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self._hover = False
+        self.setFixedSize(40, 32)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+
+    def enterEvent(self, event):  # noqa: N802
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):  # noqa: N802
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def paintEvent(self, _event):  # noqa: N802
+        p = new_painter(self)
+        r = QRectF(self.rect()).adjusted(2, 0, -2, 0)
+        if self._hover:
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(white(0.12))
+            p.drawRoundedRect(r, 8, 8)
+        icon = centered(self.width() / 2, self.height() / 2, 18)
+        draw_icon(p, "info", icon, white(0.95 if self._hover else 0.72), stroke=1.8)
+
+
 class TitleBar(QWidget):
     def __init__(self, window: QWidget, languages: List[str], parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -760,6 +791,8 @@ class TitleBar(QWidget):
         self.version.setFixedHeight(22)
         lay.addWidget(self.version, 0, Qt.AlignmentFlag.AlignVCenter)
         lay.addStretch(1)
+        self.info = InfoButton()
+        lay.addWidget(self.info)
         self.support = SupportButton()
         lay.addWidget(self.support)
         lay.addSpacing(4)
