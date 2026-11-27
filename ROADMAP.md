@@ -14,28 +14,11 @@ First public release: scan a drive or folder and export its subfolder list to PD
 - Drag a folder onto the window to choose it.
 - Automatic build on GitHub Actions: the `.exe` attached to each release is built from the public source.
 
-## 1.2 – Diagnostics, languages, filters and clipboard (ready, not yet released)
+## 1.2 – Released: diagnostics, languages, filters and clipboard
 
-One release with all of this. The work was done in small steps, each one tried on Windows before it was merged. Everything is in and the version number is 1.2; the release is published after a last test of the executable in every language.
-
-### Diagnostics and feedback
-
-- **Diagnostic report** of the last scan, saved as a text file wherever you choose with *Save as*. It contains the version, Windows, Python and Qt versions, the language and the screen scale; the scan options and results (folders found, folders skipped by reason, duration, time in pause, folders per second); the kind of path (local, network or removable); time and size of each export, and the fonts used in the PDF; the five slowest folders to read; the last lines of `errors.log`. *Progress: the report, the info window with its buttons, the offer at the end of a scan and the issue forms (bug, idea) are done. The README note comes after the release.*
-- **Privacy:** every folder name in the report is replaced by a code (for example `D:\Photos` becomes `<drive>\f_3a9c1e`), always, with no option to show the real names. No user name, no computer name. Nothing is ever sent by the program: you decide what to attach to a report. Tests check that no real name appears in the report.
-- **Info window** (an "i" button next to the heart): version, links (GitHub, issues, Ko-fi, README), *Save diagnostic report* and *Report a problem* (opens the GitHub new-issue page already filled with the version and Windows, which you can read before sending).
-- **Offer to save the report** in the window shown at the end of a scan, only when something really went wrong: a format could not be created, the scan failed because of an unexpected error, or folders were skipped because of an unexpected system error. Folders skipped for "access denied" or "not found" are normal and do not trigger it.
-- Issue forms in the repository (bug report, idea) and a README note on what the report contains.
-
-### More languages
-
-- Spanish, French, German, Portuguese, Dutch and Chinese. *Progress: all six are in (Chinese is Simplified Chinese; Portuguese is neutral, close to Brazilian). Numbers use the separator of each language.*
-- The language switch is now a drop-down menu with the name of each language; the language of Windows is used by default.
-- Issue form to report a translation to fix (done). Translations are not checked by native speakers yet: the info window says so, and corrections are welcome.
-
-### Filters and clipboard
-
-- Exclude folders by name (for example `node_modules` or `.git`). *Progress: done. A field in the main window takes names separated by commas or semicolons; upper and lower case do not matter, `*` and `?` work as wildcards, a folder left out is not opened (so nothing inside it is listed) and the starting folder is never left out. The exported files and the final message say what was left out; the diagnostic report only counts them.*
-- Copy the list to the clipboard without saving a file. *Progress: done. With no format ticked the program only scans (no "Save as", no file); when a scan is complete a **Copy list** button, in the place of Pause and Cancel, copies the full paths, one per line, in alphabetical order. It also works after a scan that created files.*
+- **Diagnostics and feedback:** an **i** button next to the heart opens an info window (version, links, *Save diagnostic report*, *Report a problem*). The diagnostic report is a text file you save and share only if you want to; every folder name in it is replaced by a code, and there is no user name or computer name. At the end of a scan the report is offered only when something really went wrong. Issue forms for bug reports, ideas and translation fixes.
+- **Eight languages:** Spanish, French, German, Dutch, Portuguese (neutral, close to Brazilian) and Chinese (Simplified) next to English and Italian, with a drop-down menu in the title bar. The new translations are not checked by native speakers yet: corrections are welcome. Numbers use the separator of each language.
+- **Filters and clipboard:** exclude folders by name (with `*` and `?` wildcards); a **Copy list** button when a scan is complete; with no format ticked the program only scans, with no file.
 
 ## Ideas, no version yet
 

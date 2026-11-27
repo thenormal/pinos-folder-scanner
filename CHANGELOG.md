@@ -2,7 +2,7 @@
 
 All notable changes to Pino's Folder Scanner. See also the [roadmap](ROADMAP.md).
 
-## 1.2 – ready, not yet released
+## 1.2 – 2026-11-27
 
 ### Added
 - **Info window** (the **i** button next to the heart): version, links (GitHub, Issues, Ko-fi, README), **Save diagnostic report** and **Report a problem**.
