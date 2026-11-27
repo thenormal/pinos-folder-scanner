@@ -1,0 +1,42 @@
+name: Report a problem
+description: Something does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The easiest way to help: in the program press the **i** button, then **Save diagnostic report**, and attach the file here (drag it into the last box).
+
+        The report is a text file you can read before sending. Folder names in it are replaced by codes, and it contains no user name or computer name. The program never sends anything by itself.
+  - type: input
+    id: version
+    attributes:
+      label: Program version
+      description: Shown in the title bar of the program.
+      placeholder: "1.2"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you see instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can it be repeated?
+      description: For example the options you chose (depth, formats) and the kind of folder or drive.
+  - type: textarea
+    id: report
+    attributes:
+      label: Diagnostic report
+      description: Drag the saved report file here, or paste its text.

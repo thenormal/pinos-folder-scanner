@@ -16,10 +16,12 @@ from app.diagnostics import (  # noqa: E402
     RunRecord,
     build_report,
     environment_info,
+    needs_attention,
     path_kind,
     read_log_tail,
     save_report,
 )
+from app.links import ISSUES_URL, new_issue_url  # noqa: E402
 from app.exporters import ExportContext, export_all  # noqa: E402
 from app.scanner import ScanResult, SkippedFolder, scan  # noqa: E402
 
@@ -165,6 +167,31 @@ def main() -> None:
     cancelled.status, cancelled.result = "cancelled", ScanResult(tree, 2, False)
     assert "Status: cancelled" in build_report(cancelled, env, "", Masker(), datetime.now())
     print("no scan / failed / cancelled OK")
+
+    # --- when a report is worth offering: only for real problems
+    assert not needs_attention(None)
+    assert needs_attention(failed)  # the scan failed
+    assert not needs_attention(cancelled)
+    ok_run = RunRecord(datetime.now(), tree, "all", False, ["txt"])
+    ok_run.status, ok_run.result = "completed", ScanResult(tree, 99, False)
+    ok_run.result.skipped = [SkippedFolder("C:\\x", "denied"), SkippedFolder("C:\\y", "notfound")]
+    assert not needs_attention(ok_run)  # "access denied" and "not found" are normal
+    ok_run.result.skipped.append(SkippedFolder("C:\\z", "error", "disk error"))
+    assert needs_attention(ok_run)  # an unexpected system error is not
+    ok_run.result.skipped.pop()
+    ok_run.errors = [("pdf", "no space left")]
+    assert needs_attention(ok_run)  # a format could not be created
+    ok_run.errors = []
+    ok_run.export_stats = {"txt": {"error": "boom"}}
+    assert needs_attention(ok_run)
+    print("when to offer the report OK")
+
+    # --- the link to the new-issue page: version and Windows filled in, nothing else
+    url = new_issue_url("1.2", "Windows-11-10.0.26100-SP0 & more")
+    assert url.startswith(ISSUES_URL + "/new?template=bug_report.yml&")
+    assert "version=1.2" in url and "windows=Windows-11-10.0.26100-SP0%20%26%20more" in url
+    assert " " not in url and "&more" not in url
+    print("issue link OK")
 
     # --- saving: UTF-8 with BOM, Windows line ends
     out = os.path.join(tmp, "report.txt")

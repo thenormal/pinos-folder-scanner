@@ -1,7 +1,7 @@
 """Message boxes in "glass" style (instead of the grey Windows boxes)."""
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QKeyEvent, QLinearGradient, QPen
@@ -64,6 +64,7 @@ class GlassDialog(QDialog):
         text: str,
         buttons: List[Tuple[str, str, int]],
         tone: str = "info",
+        extra: Optional[QWidget] = None,
     ):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
@@ -96,13 +97,16 @@ class GlassDialog(QDialog):
         body.setStyleSheet("color:rgba(255,255,255,0.86);background:transparent;")
         body.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         outer.addWidget(body)
+        if extra is not None:  # more content (for example the link buttons of the info window)
+            outer.addWidget(extra)
 
         row = QHBoxLayout()
         row.setSpacing(10)
         row.addStretch(1)
         for label, variant, value in buttons:
             button = GradientButton(label, variant, "", 46, 14)
-            button.setMinimumWidth(110)
+            # wide enough for the whole text (long texts, like in German, must not be cut)
+            button.setMinimumWidth(max(110, button.fontMetrics().horizontalAdvance(label) + 56))
             button.clicked.connect(lambda _checked=False, v=value: self.done(v))
             row.addWidget(button)
         outer.addLayout(row)
@@ -138,6 +142,41 @@ class GlassDialog(QDialog):
     @staticmethod
     def message(parent: Optional[QWidget], title: str, text: str, ok_text: str, tone: str = "info") -> None:
         GlassDialog(parent, title, text, [(ok_text, "primary", 1)], tone).exec()
+
+    @staticmethod
+    def choose(
+        parent: Optional[QWidget], title: str, text: str, buttons: List[Tuple[str, str, int]], tone: str = "info"
+    ) -> int:
+        """A message with several buttons; returns the value of the one pressed (0 if closed)."""
+        return GlassDialog(parent, title, text, buttons, tone).exec()
+
+    @staticmethod
+    def info_window(
+        parent: Optional[QWidget],
+        title: str,
+        text: str,
+        links: List[Tuple[str, Callable[[], object]]],
+        actions: List[Tuple[str, Callable[[], object]]],
+        close_text: str,
+    ) -> None:
+        """The information window: a row of link buttons, a row of action buttons and Close.
+
+        The buttons do their job and leave the window open.
+        """
+        extra = QWidget()
+        extra.setStyleSheet("background:transparent;")
+        lay = QVBoxLayout(extra)
+        lay.setContentsMargins(0, 2, 0, 2)
+        lay.setSpacing(10)
+        for group in (links, actions):
+            row = QHBoxLayout()
+            row.setSpacing(8)
+            for label, callback in group:
+                button = GradientButton(label, "ghost", "", 40, 13)
+                button.clicked.connect(lambda _checked=False, cb=callback: cb())
+                row.addWidget(button)
+            lay.addLayout(row)
+        GlassDialog(parent, title, text, [(close_text, "primary", 1)], "info", extra).exec()
 
     @staticmethod
     def ask(

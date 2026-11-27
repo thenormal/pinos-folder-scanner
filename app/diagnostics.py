@@ -242,6 +242,29 @@ class RunRecord:
     fail_trace: str = ""
 
 
+def needs_attention(run: Optional["RunRecord"]) -> bool:
+    """True when something really went wrong in the last scan (so the report is worth offering).
+
+    Really wrong means: a format could not be created, the scan failed with an unexpected
+    error, or folders were skipped because of an unexpected system error. "Access denied" and
+    "not found" are normal and do not count.
+    """
+    if run is None:
+        return False
+    if run.status == "failed" or run.errors:
+        return True
+    if any(stat.get("error") for stat in run.export_stats.values()):
+        return True
+    if run.result is not None and any(item.code == "error" for item in run.result.skipped):
+        return True
+    return False
+
+
+def system_summary() -> str:
+    """Windows version in one short line (no user name, no computer name)."""
+    return platform.platform()
+
+
 def environment_info(language: str, pixel_ratio: Optional[float] = None) -> List[Tuple[str, str]]:
     """Program and system details (no user name, no computer name)."""
     rows: List[Tuple[str, str]] = [

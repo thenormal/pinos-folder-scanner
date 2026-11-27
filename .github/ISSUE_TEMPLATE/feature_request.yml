@@ -1,0 +1,16 @@
+name: Suggest an idea
+description: A feature or an improvement you would like
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like the program to do?
+      description: Describe the idea and what you would use it for.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: How do you do it today?
+      description: Optional. Any workaround you use now.

@@ -24,11 +24,22 @@ from PySide6.QtWidgets import (
 
 from . import i18n
 from .dialogs import GlassDialog
-from .diagnostics import Masker, RunRecord, build_report, environment_info, error_log_path, read_log_tail, save_report
+from .diagnostics import (
+    Masker,
+    RunRecord,
+    build_report,
+    environment_info,
+    error_log_path,
+    needs_attention,
+    read_log_tail,
+    save_report,
+    system_summary,
+)
 from .exporters import FORMATS, PROGRAM_NAME, target_paths
 from .i18n import LANGUAGES
 from .icon import app_icon
-from .links import open_support_page
+from . import __version__
+from .links import ISSUES_URL, KOFI_URL, README_URL, REPO_URL, new_issue_url, open_support_page, open_url
 from .scanner import normalize_root
 from .settings import DEPTH_KEYS, Settings
 from .widgets import (
@@ -195,6 +206,7 @@ class MainWindow(QWidget):
         self.titlebar = TitleBar(self, LANGUAGES)
         self.titlebar.lang.changed.connect(self.set_language)
         self.titlebar.support.clicked.connect(self._open_support)
+        self.titlebar.info.clicked.connect(self._open_info)
         root.addWidget(self.titlebar)
 
         body = QWidget()
@@ -374,6 +386,7 @@ class MainWindow(QWidget):
         t = self._tr
         self.titlebar.title.setText(PROGRAM_NAME)
         self.titlebar.support.setToolTip(t("support_tip"))
+        self.titlebar.info.setToolTip(t("info_tip"))
         self.cap_folder.setText(t("section_folder"))
         self.path_field.edit.setPlaceholderText(t("path_placeholder"))
         self.btn_browse.set_look("primary", text=t("browse"))
@@ -744,7 +757,10 @@ class MainWindow(QWidget):
         )
         if errors:
             text += t("done_msg_errors", errors="\n".join(f"• {fmt}: {msg}" for fmt, msg in errors))
-        GlassDialog.message(self, t("done_msg_title"), text, t("btn_ok"), "warn" if errors else "success")
+        if needs_attention(self.last_run):
+            self._attention_dialog(t("done_msg_title"), text + t("attention_hint"), "warn")
+        else:
+            GlassDialog.message(self, t("done_msg_title"), text, t("btn_ok"), "warn" if errors else "success")
 
     def _on_failed(self, message: str) -> None:
         if self.last_run is not None:
@@ -756,7 +772,7 @@ class MainWindow(QWidget):
         self._error_text = message
         self._set_state("error")
         t = self._tr
-        GlassDialog.message(self, t("err_title"), t("fail_msg", e=message), t("btn_ok"), "error")
+        self._attention_dialog(t("err_title"), t("fail_msg", e=message) + t("attention_hint"), "error")
 
     # ------------------------------------------------------------------ diagnostic report
     def diagnostic_report_text(self) -> str:
@@ -766,6 +782,69 @@ class MainWindow(QWidget):
 
     def save_diagnostic_report(self, path: str) -> None:
         save_report(self.diagnostic_report_text(), path)
+
+    def _modal_parent(self) -> QWidget:
+        """The window that is open on top (so a dialog opened from it is not blocked), or this one."""
+        return QApplication.activeModalWidget() or self
+
+    def _save_report_dialog(self) -> None:
+        """Ask where to save the diagnostic report, save it and say where it went."""
+        t = self._tr
+        parent = self._modal_parent()
+        default_dir = (
+            self.settings.last_save_dir()
+            or QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
+            or os.path.expanduser("~")
+        )
+        name = f"Pinos_Folder_Scanner_report_{datetime.now():%Y%m%d_%H%M}.txt"
+        path, _ = QFileDialog.getSaveFileName(
+            parent, t("dlg_save_report"), os.path.join(default_dir, name), t("dlg_filter_report")
+        )
+        if not path:
+            return
+        if not os.path.splitext(path)[1]:
+            path += ".txt"
+        try:
+            self.save_diagnostic_report(path)
+        except OSError as exc:
+            GlassDialog.message(parent, t("err_title"), t("report_save_failed", e=str(exc)), t("btn_ok"), "error")
+            return
+        GlassDialog.message(
+            parent, t("report_saved_title"), t("report_saved", path=os.path.normpath(path)), t("btn_ok"), "success"
+        )
+
+    def _report_problem(self) -> None:
+        """Open the GitHub new-issue page, already filled with the version and Windows."""
+        open_url(new_issue_url(__version__, system_summary()))
+
+    def _open_info(self) -> None:
+        t = self._tr
+        GlassDialog.info_window(
+            self,
+            t("app_title"),
+            t("info_version", v=__version__) + "\n\n" + t("info_text"),
+            [
+                ("GitHub", lambda: open_url(REPO_URL)),
+                ("Issues", lambda: open_url(ISSUES_URL)),
+                ("Ko-fi", lambda: open_url(KOFI_URL)),
+                ("README", lambda: open_url(README_URL)),
+            ],
+            [(t("info_save_report"), self._save_report_dialog), (t("info_report_problem"), self._report_problem)],
+            t("btn_close"),
+        )
+
+    def _attention_dialog(self, title: str, text: str, tone: str) -> None:
+        """A message shown when something really went wrong: it offers the report and the issue page."""
+        t = self._tr
+        buttons = [(t("info_report_problem"), "ghost", 3), (t("info_save_report"), "ghost", 2), (t("btn_ok"), "primary", 1)]
+        while True:
+            choice = GlassDialog.choose(self, title, text, buttons, tone)
+            if choice == 2:
+                self._save_report_dialog()
+            elif choice == 3:
+                self._report_problem()
+            else:
+                break
 
     # ------------------------------------------------------------------ closing
     def closeEvent(self, event) -> None:  # noqa: N802
