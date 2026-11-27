@@ -1,4 +1,5 @@
 """Automated tests for the engine (scanning + exports). Run with:  python tests/test_core.py"""
+import html
 import json
 import os
 import sys
@@ -9,7 +10,10 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from openpyxl import load_workbook  # noqa: E402
+
 from app.exporters import FORMATS, ExportContext, export_all  # noqa: E402
+from app.i18n import LANGUAGE_NAMES, LANGUAGES, STRINGS, tr  # noqa: E402
 from app.scanner import scan  # noqa: E402
 
 DEPTH_LABEL = "All subfolders (No depth limit)"
@@ -47,7 +51,30 @@ def rel(result):
     return [os.path.relpath(p, result.root) for p in result.folders]
 
 
+def check_texts():
+    """Every language has all the texts, with the same {placeholders}, and a name for the menu."""
+    import re
+
+    en = STRINGS["en"]
+    placeholders = lambda text: sorted(re.findall(r"\{(\w+)\}", text))  # noqa: E731
+    assert LANGUAGES[:2] == ["en", "it"] and len(set(LANGUAGES)) == len(LANGUAGES)
+    assert set(LANGUAGE_NAMES) == set(LANGUAGES) and all(LANGUAGE_NAMES.values())
+    assert set(STRINGS) == set(LANGUAGES)
+    for lang in LANGUAGES:
+        table = STRINGS[lang]
+        assert set(table) == set(en), (lang, set(table) ^ set(en))
+        for key, text in table.items():
+            assert isinstance(text, str) and text.strip(), (lang, key)
+            assert placeholders(text) == placeholders(en[key]), (lang, key, text)
+            assert text.startswith("\n") == en[key].startswith("\n"), (lang, key)
+            text.format(**{name: "x" for name in placeholders(text)})  # no stray brace
+    assert tr("xx", "btn_start") == en["btn_start"], "an unknown language falls back to English"
+    assert STRINGS["de"]["btn_start"] != en["btn_start"] and STRINGS["fr"]["btn_start"] != en["btn_start"]
+    print(f"texts OK: {len(LANGUAGES)} languages x {len(en)} texts, same placeholders")
+
+
 def main():
+    check_texts()
     with tempfile.TemporaryDirectory() as tmp:
         root = os.path.join(tmp, "root")
         os.makedirs(root)
@@ -156,8 +183,19 @@ def main():
         assert "ELENCO SOTTOCARTELLE" in txt_it and "SUBFOLDER LIST" not in txt_it
         assert open(base_it + ".pdf", "rb").read(5) == b"%PDF-"
         print("Italian exports OK")
-        from openpyxl import load_workbook
 
+        # every language: all the formats are created, the texts are those of the language
+        for lang in LANGUAGES:
+            base_l = os.path.join(tmp, f"export_{lang}")
+            created_l, errors_l = export_all(ExportContext(rall, lang, datetime.now(), DEPTH_LABEL), FORMATS, base_l)
+            assert not errors_l, (lang, errors_l)
+            txt_l = open(base_l + ".txt", encoding="utf-8").read()
+            assert STRINGS[lang]["rep_title"].upper() in txt_l, lang
+            assert open(base_l + ".pdf", "rb").read(5) == b"%PDF-"
+            assert STRINGS[lang]["rep_sheet_folders"] in load_workbook(base_l + ".xlsx").sheetnames
+            html_l = open(base_l + ".html", encoding="utf-8").read()
+            assert html.escape(STRINGS[lang]["html_search"]) in html_l, lang
+        print("exports in every language OK")
         wb = load_workbook(base + ".xlsx")
         assert wb.sheetnames[0] == "Folders" and wb["Folders"].max_row == len(rall.folders) + 1
         print("exports OK:", ", ".join(os.path.basename(c) for c in created))
