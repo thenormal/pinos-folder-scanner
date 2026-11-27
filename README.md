@@ -1,5 +1,14 @@
 # Pino's Folder Scanner
 
+[![Latest release](https://img.shields.io/github/v/release/thenormal/pinos-folder-scanner?style=flat-square&color=2ea44f)](../../releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/thenormal/pinos-folder-scanner/total?style=flat-square&color=0a7ea4)](../../releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/thenormal/pinos-folder-scanner/build.yml?branch=main&style=flat-square&label=build)](../../actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/github/license/thenormal/pinos-folder-scanner?style=flat-square&color=blue)](LICENSE)
+![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D4?style=flat-square&logo=windows11&logoColor=white)
+![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white)
+![Made with PySide6](https://img.shields.io/badge/made%20with-PySide6-41CD52?style=flat-square&logo=qt&logoColor=white)
+[![Ko-fi](https://img.shields.io/badge/support-Ko--fi-FF5E5B?style=flat-square&logo=kofi&logoColor=white)](https://ko-fi.com/thenormal)
+
 A small Windows desktop app that scans a drive or a folder and exports the list of its subfolders to **PDF, TXT, CSV, XLSX, HTML or JSON**.
 
 Pick a folder, choose how deep to look, tick the formats you want, press **Start scan**. That's it.
