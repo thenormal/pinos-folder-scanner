@@ -24,6 +24,7 @@ os.environ["LOCALAPPDATA"] = tempfile.mkdtemp(prefix="fs_log_")  # the diagnosti
 
 import app.scanner as scanner_mod  # noqa: E402
 from app.dialogs import GlassDialog  # noqa: E402
+from app.i18n import LANGUAGES, STRINGS  # noqa: E402
 from app.settings import Settings  # noqa: E402
 import app.window as window_mod  # noqa: E402
 from app.links import ISSUES_URL, KOFI_URL, README_URL, REPO_URL  # noqa: E402
@@ -67,6 +68,7 @@ def main():
 
     settings = Settings()
     settings.set_language("en")  # the texts below are English, whatever the language of the system
+    settings.set_exclude_text("")  # nothing left out unless a test asks for it, whatever an earlier run saved
     win = MainWindow(settings)
     win.show()
     qt.processEvents()
@@ -145,6 +147,38 @@ def main():
     assert wait_for(lambda: win.state == "cancelled")
     print("cancel from pause OK")
 
+    # --- folders left out by name: the field, the scan, the final message, the report, the settings
+    assert win.exclude_field.edit.text() == "" and win.exclude_field.edit.placeholderText().startswith("For example")
+    win.exclude_field.edit.setText("B, nothing*")  # not case sensitive: every folder called "b" is left out
+    messages.clear()
+    base_x = os.path.join(out, "excluded")
+    win._ask_base = lambda formats, root: base_x
+    win._on_start()
+    assert wait_for(lambda: win.state == "done"), win.state
+    assert win._count == 40, win._count  # the 40 "aNN" folders; the "b" folders and what is in them are left out
+    res = win.last_run.result
+    assert res.exclude == ["B", "nothing*"] and res.excluded == 40
+    assert "40 folders left out by name" in messages[-1][1], messages[-1][1]
+    report = win.diagnostic_report_text()
+    assert "Exclusion by name: 2 name(s), 40 folders left out" in report
+    assert "nothing" not in report and "B, " not in report, "the names typed by the person are not in the report"
+    win._save_settings()
+    assert win.settings.exclude_text() == "B, nothing*"
+    win.set_language("it")
+    assert win.cap_exclude.text().upper() == STRINGS["it"]["exclude_title"].upper()
+    assert win.exclude_field.edit.placeholderText() == STRINGS["it"]["exclude_placeholder"]
+    win.set_language("en")
+    win.exclude_field.edit.setText("")
+    messages.clear()
+    win._ask_base = lambda formats, root: os.path.join(out, "not_excluded")
+    win._on_start()
+    assert wait_for(lambda: win.state == "done") and win._count == 40 * 3
+    assert "left out" not in messages[-1][1], "no exclusion: no line about it"
+    win._save_settings()
+    assert win.settings.exclude_text() == ""
+    win._set_state("cancelled")  # back to the state the following checks expect
+    print("exclusion by name in the window OK")
+
     # --- checks on the input
     messages.clear()
     win.path_field.edit.setText("")
@@ -164,7 +198,6 @@ def main():
     print("texts OK")
 
     # --- Italian: switch the window and back, the texts and the saved choice follow
-    from app.i18n import LANGUAGES, STRINGS
     assert LANGUAGES == ["en", "it", "de", "es", "fr", "nl", "pt", "zh"]
     win.set_language("it")
     assert win.btn_start.text() == STRINGS["it"]["btn_start"] == "Avvia scansione"

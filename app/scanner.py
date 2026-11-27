@@ -6,10 +6,11 @@ Pause and cancel are supported through two threading.Event objects.
 from __future__ import annotations
 
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 FILE_ATTRIBUTE_HIDDEN = 0x2
 FILE_ATTRIBUTE_SYSTEM = 0x4
@@ -54,6 +55,8 @@ class ScanResult:
     paused: float = 0.0  # seconds spent in pause (not counted in `duration`)
     dirs_read: int = 0  # folders opened to read their content
     slowest: List[Tuple[str, float]] = field(default_factory=list)  # (folder, seconds), slowest first
+    exclude: List[str] = field(default_factory=list)  # folder names the person asked to leave out
+    excluded: int = 0  # folders left out because of their name (their content is not opened)
 
 
 SLOWEST_KEEP = 5
@@ -138,6 +141,51 @@ def sort_key(path: str):
     return (drive.casefold(), tuple(p.casefold() for p in parts), path)
 
 
+# ---------------------------------------------------------------- exclusion by name
+def parse_exclude(text: str) -> List[str]:
+    """The folder names to leave out, from a text like "node_modules, .git; Backup*".
+
+    Names are separated by a comma or a semicolon; empty ones are dropped and a name written twice
+    (in any case) is kept once.
+    """
+    names: List[str] = []
+    seen = set()
+    for piece in re.split(r"[;,]", text or ""):
+        name = piece.strip()
+        if name and name.casefold() not in seen:
+            seen.add(name.casefold())
+            names.append(name)
+    return names
+
+
+def make_name_matcher(patterns: Sequence[str]) -> Optional[Callable[[str], bool]]:
+    """A function that says if a folder name is one to leave out; None when there is nothing to leave out.
+
+    The whole name must match, upper and lower case do not matter, and `*` (any characters) and
+    `?` (one character) are the only wildcards: everything else, brackets included, is taken
+    literally (folders like "[2024]" are common).
+    """
+    plain = set()
+    wild = []
+    for pattern in patterns:
+        folded = pattern.strip().casefold()
+        if not folded:
+            continue
+        if "*" in folded or "?" in folded:
+            regex = "".join(".*" if c == "*" else "." if c == "?" else re.escape(c) for c in folded)
+            wild.append(re.compile(regex, re.DOTALL))
+        else:
+            plain.add(folded)
+    if not plain and not wild:
+        return None
+
+    def matches(name: str) -> bool:
+        folded = name.casefold()
+        return folded in plain or any(rx.fullmatch(folded) for rx in wild)
+
+    return matches
+
+
 # ---------------------------------------------------------------- scanning
 ProgressCb = Callable[[int, str, int], None]
 
@@ -149,6 +197,7 @@ def scan(
     on_progress: Optional[ProgressCb] = None,
     run_event: Optional[threading.Event] = None,
     cancel_event: Optional[threading.Event] = None,
+    exclude: Optional[Sequence[str]] = None,
 ) -> ScanResult:
     """Scan `root` and return the sorted list of subfolders.
 
@@ -156,9 +205,14 @@ def scan(
     level, ... None = all.
     run_event: if given, the scan proceeds only while it is "set" (cleared = paused).
     cancel_event: if "set", the scan stops.
+    exclude: folder names to leave out (see make_name_matcher). A folder left out is not listed and
+    is not opened, so nothing inside it is listed either. The folder chosen to start from is never left out.
     """
     root = normalize_root(root)
     result = ScanResult(root=root, max_depth=max_depth, include_hidden=include_hidden)
+    matcher = make_name_matcher(exclude or []) if max_depth != 0 else None
+    if matcher is not None:
+        result.exclude = [name for name in (exclude or []) if name.strip()]
     started = time.monotonic()
     paused_total = 0.0
     last_emit = 0.0
@@ -213,6 +267,9 @@ def scan(
                     if _is_link_or_junction(entry):
                         continue
                     if not include_hidden and _is_hidden_or_system(entry, parent_is_root):
+                        continue
+                    if matcher is not None and matcher(entry.name):
+                        result.excluded += 1
                         continue
                     full = from_long(entry.path)
                     result.folders.append(full)

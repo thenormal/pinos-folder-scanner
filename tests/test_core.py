@@ -15,7 +15,7 @@ from openpyxl import load_workbook  # noqa: E402
 from app.exporters import FORMATS, ExportContext, export_all  # noqa: E402
 from app.i18n import LANGUAGE_NAMES, LANGUAGES, STRINGS, format_int, tr  # noqa: E402
 from app.settings import language_for_locale  # noqa: E402
-from app.scanner import scan  # noqa: E402
+from app.scanner import make_name_matcher, parse_exclude, scan  # noqa: E402
 
 DEPTH_LABEL = "All subfolders (No depth limit)"
 
@@ -86,8 +86,77 @@ def check_texts():
     print("numbers and language detection OK")
 
 
+def check_exclude():
+    """Folders left out by name: matching, wildcards, the starting folder, counts and the exported files."""
+    assert parse_exclude("node_modules, .git;  Backup* ,,NODE_MODULES ; ") == ["node_modules", ".git", "Backup*"]
+    assert parse_exclude("") == [] and parse_exclude(None) == [] and parse_exclude(" , ;; ") == []
+    assert make_name_matcher([]) is None and make_name_matcher(["", "  "]) is None
+    m = make_name_matcher(["Node_Modules", "back*", "a?", "[old]"])
+    assert m("node_modules") and m("NODE_MODULES") and m("Backup2024") and m("BACK") and m("a1") and m("[old]")
+    assert not m("node_modules2") and not m("my_node_modules") and not m("a") and not m("a12") and not m("old")
+    assert not m("o") and not m("x[old]")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = os.path.join(tmp, "root")
+        for n in ("keep/a", "node_modules/pkg/x", "sub/Node_Modules/y", "sub/ok", "Backup2024/z", "backup_old/w",
+                  "[old]/q", "a1/b", "a2/b", "node_modules_extra/k", ".git/objects"):
+            os.makedirs(os.path.join(root, *n.split("/")))
+        base = scan(root, None, True)
+        assert base.exclude == [] and base.excluded == 0
+        total = len(base.folders)
+
+        def names(result):
+            return sorted(os.path.relpath(f, root).replace(os.sep, "/") for f in result.folders)
+
+        r = scan(root, None, True, exclude=["node_modules"])
+        got = names(r)
+        assert "node_modules" not in got and "sub/Node_Modules" not in got, got
+        assert not any("pkg" in g or g.endswith("/y") for g in got), "the content of a folder left out is not listed"
+        assert "node_modules_extra" in got and "keep/a" in got and "sub/ok" in got
+        assert r.excluded == 2 and r.exclude == ["node_modules"]
+        assert len(r.folders) == total - 5  # node_modules, pkg, x, Node_Modules, y
+
+        r = scan(root, None, True, exclude=["backup*", "a?", "[old]", ".git"])
+        got = names(r)
+        assert not any(g.split("/")[0] in ("Backup2024", "backup_old", "a1", "a2", "[old]", ".git") for g in got), got
+        assert r.excluded == 6 and "keep" in got and "keep/a" in got, (r.excluded, got)
+
+        # the folder chosen to start from is never left out, even when its name matches
+        inside = os.path.join(root, "node_modules")
+        r = scan(inside, None, True, exclude=["node_modules", "pkg"])
+        assert r.folders == [] and r.excluded == 1, "the starting folder is scanned; only 'pkg' inside it is left out"
+        r = scan(inside, None, True, exclude=["x"])
+        assert [os.path.basename(f) for f in r.folders] == ["pkg"] and r.excluded == 1
+
+        # with a depth limit only the folders that are looked at are counted
+        r = scan(root, 1, True, exclude=["node_modules"])
+        assert r.excluded == 1 and "node_modules" not in names(r)
+        r = scan(root, 0, True, exclude=["node_modules"])  # only the chosen folder: nothing to leave out
+        assert r.exclude == [] and r.excluded == 0 and r.folders == [os.path.normpath(root)]
+
+        # the exported files
+        r = scan(root, None, True, exclude=["node_modules", "Backup*"])
+        for lang in LANGUAGES:
+            b = os.path.join(tmp, f"x_{lang}")
+            created, errors = export_all(ExportContext(r, lang, datetime.now(), "All"), FORMATS, b)
+            assert not errors, (lang, errors)
+            txt = open(b + ".txt", encoding="utf-8").read()
+            assert STRINGS[lang]["rep_excluded_names"] + ": node_modules, Backup*" in txt, lang
+            assert STRINGS[lang]["rep_excluded_count"] + ": " + str(r.excluded) in txt, lang
+        data = json.load(open(os.path.join(tmp, "x_en.json"), encoding="utf-8"))
+        assert data["excluded_names"] == ["node_modules", "Backup*"] and data["excluded_count"] == r.excluded
+        assert "node_modules, Backup*" in open(os.path.join(tmp, "x_en.html"), encoding="utf-8").read()
+        plain = scan(root, None, True)
+        b = os.path.join(tmp, "plain")
+        export_all(ExportContext(plain, "en", datetime.now(), "All"), FORMATS, b)
+        assert "Excluded" not in open(b + ".txt", encoding="utf-8").read(), "no exclusion: no extra lines"
+        assert "excluded_names" not in json.load(open(b + ".json", encoding="utf-8"))
+    print("exclusion by name OK")
+
+
 def main():
     check_texts()
+    check_exclude()
     with tempfile.TemporaryDirectory() as tmp:
         root = os.path.join(tmp, "root")
         os.makedirs(root)

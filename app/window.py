@@ -40,7 +40,7 @@ from .i18n import LANGUAGE_NAMES, LANGUAGES, UNVERIFIED_LANGUAGES, format_int
 from .icon import app_icon
 from . import __version__
 from .links import ISSUES_URL, KOFI_URL, README_URL, REPO_URL, new_issue_url, open_support_page, open_url
-from .scanner import normalize_root
+from .scanner import normalize_root, parse_exclude
 from .settings import DEPTH_KEYS, Settings
 from .widgets import (
     Caption,
@@ -255,6 +255,11 @@ class MainWindow(QWidget):
         self.toggle = ToggleSwitch()
         trow.addWidget(self.toggle)
         fl.addLayout(trow)
+        fl.addSpacing(4)
+        self.cap_exclude = Caption()
+        fl.addWidget(self.cap_exclude)
+        self.exclude_field = PathField("ban", 44, 14)
+        fl.addWidget(self.exclude_field)
         left_l.addWidget(self.card_folder)
 
         self.card_formats = GlassCard()
@@ -357,6 +362,7 @@ class MainWindow(QWidget):
         self.titlebar.lang.set_current(self.lang)
         self.depth.set_current(self.settings.depth_key())
         self.toggle.setChecked(self.settings.include_hidden())
+        self.exclude_field.edit.setText(self.settings.exclude_text())
         chosen = self.settings.formats(FORMATS)
         for fmt, chip in self.chips.items():
             chip.setChecked(fmt in chosen)
@@ -368,6 +374,7 @@ class MainWindow(QWidget):
         self.settings.set_language(self.lang)
         self.settings.set_depth_key(self.depth.current() or "2")
         self.settings.set_include_hidden(self.toggle.isChecked())
+        self.settings.set_exclude_text(self.exclude_field.edit.text().strip())
         self.settings.set_formats([f for f in FORMATS if self.chips[f].isChecked()])
         text = self.path_field.edit.text().strip()
         if text and os.path.isdir(text):
@@ -395,6 +402,8 @@ class MainWindow(QWidget):
         self.depth.set_options([(k, t(f"depth_{k}_title"), t(f"depth_{k}_sub")) for k in DEPTH_KEYS])
         self.lbl_hidden_t.setText(t("hidden_title"))
         self.lbl_hidden_s.setText(t("hidden_sub"))
+        self.cap_exclude.setText(t("exclude_title"))
+        self.exclude_field.edit.setPlaceholderText(t("exclude_placeholder"))
         self.cap_formats.setText(t("section_formats"))
         for fmt, chip in self.chips.items():
             chip.set_subtitle(t(f"fmt_{fmt}_sub"))
@@ -681,7 +690,17 @@ class MainWindow(QWidget):
             language=self.lang,
             save_base=base,
         )
-        self.worker = ScanWorker(root, DEPTH_VALUE[key], self.toggle.isChecked(), formats, base, self.lang, depth_label, self)
+        self.worker = ScanWorker(
+            root,
+            DEPTH_VALUE[key],
+            self.toggle.isChecked(),
+            formats,
+            base,
+            self.lang,
+            depth_label,
+            exclude=parse_exclude(self.exclude_field.edit.text()),
+            parent=self,
+        )
         self.worker.progress.connect(self._on_progress)
         self.worker.exporting.connect(self._on_exporting)
         self.worker.finished_ok.connect(self._on_finished)
@@ -755,6 +774,8 @@ class MainWindow(QWidget):
             folder=folder,
             files="\n".join("• " + os.path.basename(f) for f in files) or "–",
         )
+        if result.exclude:
+            text += t("done_msg_excluded", x=self._num(result.excluded))
         if errors:
             text += t("done_msg_errors", errors="\n".join(f"• {fmt}: {msg}" for fmt, msg in errors))
         if needs_attention(self.last_run):

@@ -65,6 +65,13 @@ class Settings:
     def set_formats(self, formats: List[str]) -> None:
         self._q.setValue("formats", ",".join(formats))
 
+    # folder names left out of the scan (the text as typed: "node_modules, .git")
+    def exclude_text(self) -> str:
+        return str(self._q.value("exclude", "") or "")
+
+    def set_exclude_text(self, text: str) -> None:
+        self._q.setValue("exclude", text)
+
     # folders used
     def last_folder(self) -> str:
         value = str(self._q.value("last_folder", "") or "")
